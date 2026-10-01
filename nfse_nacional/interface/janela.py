@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
                                QMainWindow, QMessageBox, QPushButton, QTabWidget,
                                QVBoxLayout, QWidget)
 
 from .. import VERSAO, cofre
+from ..config import pasta_base
 from ..banco import Banco
 from ..servico import Emissor
 from .aba_emitir import AbaEmitir
@@ -23,6 +24,7 @@ class Janela(QMainWindow):
         self.banco = banco or Banco()
         self._emissor: Emissor | None = None
         self.setWindowTitle(f"NFS-e Nacional {VERSAO}")
+        self.setWindowIcon(icone())
         self.resize(1200, 760)
 
         self.empresas = QComboBox(); self.empresas.setMinimumWidth(380)
@@ -55,6 +57,14 @@ class Janela(QMainWindow):
         self.menuBar().addAction(sobre)
 
         self._carregar_empresas()
+
+    def _sobre(self):
+        caixa = QMessageBox(self)
+        caixa.setWindowTitle("Sobre")
+        caixa.setIconPixmap(icone().pixmap(72, 72))
+        caixa.setText(f"<b>NFS-e Nacional {VERSAO}</b><br><br>Emissão (Sefin Nacional) e consulta (ADN) "
+                      "da NFS-e Padrão Nacional.<br>Leiaute DPS 1.01 · DANFSe conforme NT 008/2026.")
+        caixa.exec()
 
     # ------------------------------------------------------------ empresas
     def _carregar_empresas(self, selecionar_id: int | None = None):
@@ -123,10 +133,22 @@ class Janela(QMainWindow):
             self._carregar_empresas(d.e.id)
 
 
+def icone() -> QIcon:
+    return QIcon(str(pasta_base() / "recursos" / "icone.png"))
+
+
 def executar() -> int:
+    if sys.platform == "win32":
+        # Sem um AppUserModelID próprio a barra de tarefas agrupa sob o python.exe e mostra o ícone dele.
+        import ctypes
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Biazin.NFSeNacional")
+        except (AttributeError, OSError):
+            pass
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("NFS-e Nacional")
     app.setStyle("Fusion")
+    app.setWindowIcon(icone())
     j = Janela()
     j.show()
     return app.exec()

@@ -305,10 +305,20 @@ class Emissor:
         self._guardar_documento(xml)
 
     def danfse(self, nota_id: int) -> bytes:
+        """DANFSe gerado localmente (NT 008/2026: a API do ADN foi suspensa em 07/2026)."""
+        from .danfse import gerar_pdf
         nota = self.banco.nota(nota_id)
         if not nota or not nota["chave"]:
             raise ValueError("Nota sem chave de acesso.")
-        return self.adn.danfse(nota["chave"])
+        xml = nota["nfse_xml"]
+        if not xml:
+            xml = self.sefin.consultar_nfse(nota["chave"])
+            self.banco.atualizar_nota(nota_id, nfse_xml=xml)
+        marca = ""
+        if nota["situacao"] == "cancelada":
+            tipos = {ev["tipo"] for ev in self.banco.eventos(nota["chave"])}
+            marca = "SUBSTITUÍDA" if "105102" in tipos else "CANCELADA"
+        return gerar_pdf(xml, marca)
 
     def parametros_convenio(self) -> dict:
         return self.sefin.parametros_convenio(self.empresa.c_mun)

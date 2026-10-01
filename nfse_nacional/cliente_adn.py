@@ -82,7 +82,10 @@ class ClienteADN:
                 if (b := campo(it, "ArquivoXml", "eventoXmlGZipB64"))]
 
     def danfse(self, chave: str) -> bytes:
-        """PDF do DANFSe gerado pelo ADN."""
+        """PDF do DANFSe pelo ADN. API suspensa em 07/2026 (NT 008): responde 503.
+
+        Mantido só para o caso de voltar; o app usa danfse.gerar_pdf().
+        """
         r = self.s.get(f"{self.base}/danfse/{chave}", timeout=TIMEOUT,
                        headers={"Accept": "application/pdf"})
         if not r.ok or not r.content.startswith(b"%PDF"):

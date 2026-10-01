@@ -1,4 +1,6 @@
 -r requirements.txt
 pytest>=8
 xmlsec>=1.3.14     # só nos testes: verificação independente da assinatura
+pypdfium2>=4.30   # só nos testes: renderiza o DANFSe gerado
 pyinstaller>=6.10
+pypdf>=5          # s� nos testes: l� o texto do DANFSe

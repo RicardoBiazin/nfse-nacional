@@ -5,8 +5,9 @@ direto nas APIs do governo, sem provedor intermediário:
 
 - **Sefin Nacional**: emissão síncrona (DPS → NFS-e), consulta por chave e por Id da DPS,
   cancelamento (evento 101101), parâmetros municipais.
-- **ADN (Ambiente de Dados Nacional)**: distribuição por NSU das notas **emitidas e recebidas**,
-  eventos e DANFSe em PDF.
+- **ADN (Ambiente de Dados Nacional)**: distribuição por NSU das notas **emitidas e recebidas**
+  e eventos.
+- **DANFSe** gerado no próprio app, conforme a NT 008/2026 (a API do governo foi suspensa).
 
 Leiaute **DPS 1.01** (XSD de 09/02/2026, com o grupo IBS/CBS opcional). Começa em
 **Produção Restrita**; produção só por escolha explícita no cadastro da empresa.
