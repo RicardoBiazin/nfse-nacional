@@ -1,0 +1,27 @@
+# Certificados e segredos: nunca versionar
+*.pfx
+*.p12
+*.pem
+*.key
+.env
+.env.*
+
+# Dados locais
+*.db
+*.db-wal
+*.db-shm
+dados/
+DPS_*.xml
+DANFSe_*.pdf
+NFSe_*.xml
+
+# Material de referência baixado do gov.br (regerável)
+docs_ref/
+
+# Python / build
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+build/
+dist/
