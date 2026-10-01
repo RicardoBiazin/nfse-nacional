@@ -241,3 +241,12 @@ def test_reserva_de_numero_e_definir_proximo(banco, empresa):
     assert banco.reservar_numero(empresa.id, "producao_restrita", "1") == 1
     banco.definir_proximo_numero(empresa.id, "producao", "1", 500)
     assert banco.reservar_numero(empresa.id, "producao", "1") == 500
+
+
+def test_me_epp_vai_com_piscofins_como_o_portal(banco, empresa, certificado):
+    """Nota real do Emissor Web (ME/EPP): tribFed/piscofins CST 00 e tpRetPisCofins 0."""
+    em = Emissor(banco, empresa, certificado, sessao=SessaoFalsa())
+    raiz = etree.fromstring(em.preparar(em.montar_dps(dados(), 1)))
+    pc = raiz.find(".//n:tribFed/n:piscofins", N)
+    assert pc.findtext("n:CST", namespaces=N) == "00"
+    assert pc.findtext("n:tpRetPisCofins", namespaces=N) == "0"

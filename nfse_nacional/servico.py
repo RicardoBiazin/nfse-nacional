@@ -240,7 +240,7 @@ class Emissor:
                             info_complementar=d.info_complementar),
             valores=Valores(v_serv=d.v_serv, v_desc_incond=d.v_desc_incond,
                             v_desc_cond=d.v_desc_cond, trib_issqn=d.trib_issqn,
-                            tp_ret_issqn=d.tp_ret_issqn, p_aliq=p_aliq, trib_fed=d.trib_fed,
+                            tp_ret_issqn=d.tp_ret_issqn, p_aliq=p_aliq, trib_fed=self._trib_fed(d),
                             p_tot_trib_fed=_dec(e.p_tot_fed) or Decimal(0),
                             p_tot_trib_est=_dec(e.p_tot_est) or Decimal(0),
                             p_tot_trib_mun=_dec(e.p_tot_mun) or Decimal(0),
@@ -248,6 +248,13 @@ class Emissor:
                                            else _dec(e.p_tot_sn) or Decimal(0))),
             ibscbs=ibs,
         )
+
+    def _trib_fed(self, d: DadosNota) -> TributosFederais:
+        """Sem dados de tributos federais, o ME/EPP vai como o Emissor Web do portal faz:
+        PIS/COFINS CST 00 e "0 - PIS/COFINS/CSLL Não Retidos" (aparece no DANFSe)."""
+        if d.trib_fed.vazio() and self.empresa.op_simp_nac == "3"                 and len(so_digitos(self.empresa.cnpj)) == 14:
+            return TributosFederais(cst_pis_cofins="00", tp_ret_pis_cofins="0")
+        return d.trib_fed
 
     def preparar(self, dps: DPS) -> bytes:
         """Valida regras + schema, assina e devolve o XML pronto para envio."""

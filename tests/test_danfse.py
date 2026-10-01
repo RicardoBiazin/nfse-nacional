@@ -60,3 +60,8 @@ def test_danfse_marca_dagua():
 def test_nome_municipio():
     assert nome_municipio("4205407") == "Florianópolis / SC"
     assert nome_municipio("3106200") == "Belo Horizonte / MG"
+
+
+def test_ultima_linha_dos_totais_igual_ao_oficial():
+    t = _texto(gerar_pdf(_nfse()))
+    assert "Valor Líquido da NFS-e + IBS/CBS\nR$ 0,00" in t or t.count("R$ 0,00") >= 2

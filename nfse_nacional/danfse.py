@@ -592,7 +592,8 @@ def _totais(f: _Folha, x: _Xml):
     f.campo(0, "Total das Retenções (ISSQN / Federais)", _moeda(x.t("n:valores/n:vTotalRet")))
     f.campo(1, "Valor Líquido da NFS-e", _moeda(x.t("n:valores/n:vLiq")))
     f.campo(2, "Total do IBS/CBS", _moeda(tot_ibscbs))
-    f.campo(3, "Valor Líquido da NFS-e + IBS/CBS", _moeda(x.t("n:totCIBS/n:vTotNF", g)))
+    # Sem grupo IBSCBS o DANFSe oficial (API do ADN) imprime R$ 0,00; mantém igual.
+    f.campo(3, "Valor Líquido da NFS-e + IBS/CBS", _moeda(x.t("n:totCIBS/n:vTotNF", g) or "0"))
     f.nova_linha(0.67)
     f.linha_h(f.y)
 

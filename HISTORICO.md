@@ -101,3 +101,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Emitir: campo **"Tributos aprox. Simples (%)"** (só para ME/EPP) com a alíquota efetiva do
   mês, por nota (`pTotTribSN`). Vem preenchido com o padrão da empresa e, ao emitir, o valor
   usado vira o novo padrão — a alíquota do Simples varia mês a mês com a receita de 12 meses.
+
+## 0.6.3 — 01/10/2026
+
+- **Primeira NFS-e emitida pelo app** em Produção Restrita (nº 1, série 1, 01/10/2026): DPS,
+  assinatura e envio aceitos pela Sefin Nacional.
+- DPS de ME/EPP passa a levar `tribFed/piscofins` com CST 00 e tpRetPisCofins 0, como o Emissor
+  Web do portal — no DANFSe aparece "0 - PIS/COFINS/CSLL Não Retidos".
+- DANFSe: "Valor Líquido da NFS-e + IBS/CBS" mostra R$ 0,00 quando a nota não tem IBS/CBS,
+  igual ao DANFSe oficial (antes "-").
