@@ -37,7 +37,8 @@ class Janela(QMainWindow):
         self.abas = QTabWidget()
         self.aba_emitir = AbaEmitir(self.banco, self.emissor)
         self.aba_notas = AbaNotas(self.banco, self.emissor, self._empresa_atual)
-        self.aba_emitir.emitida.connect(self.aba_notas.recarregar)
+        self.aba_emitir.emitida.connect(
+            lambda: self.aba_notas.mostrar_ambiente(self._empresa_atual().ambiente))
         self.abas.addTab(self.aba_emitir, "Emitir NFS-e")
         self.abas.addTab(self.aba_notas, "Notas")
         self.abas.currentChanged.connect(lambda i: i == 1 and self.aba_notas.recarregar())

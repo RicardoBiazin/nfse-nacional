@@ -71,6 +71,40 @@ def test_emitir_pela_interface(janela, qtbot=None):
     assert "1.234,56" in janela.aba_notas.status.text()
 
 
+def test_notas_mostra_producao_por_padrao_e_busca(janela):
+    n = janela.aba_notas
+    assert n.ambiente.currentData() == "producao"
+    e = janela._empresa_atual()
+    janela.banco.inserir_nota(empresa_id=e.id, ambiente="producao", origem="emitida",
+                              situacao="autorizada", numero="17", d_compet=f"{__import__('datetime').date.today():%Y-%m-%d}",
+                              tomador_nome="CLIENTE EXEMPLO", descricao="ERP", v_serv="1500.00")
+    n.recarregar()
+    assert n.tabela.rowCount() == 1
+    n.busca.setText("inexistente"); n.recarregar()
+    assert n.tabela.rowCount() == 0
+
+
+def test_sincronizar_avisa_resultado(janela):
+    from PySide6.QtCore import QThreadPool
+    from .test_servico import resposta
+    em = janela.emissor()
+    s = SessaoFalsa()
+    s.rota("GET", r"/contribuintes/DFe/", lambda u, k: resposta(404, {
+        "StatusProcessamento": "NENHUM_DOCUMENTO_LOCALIZADO",
+        "Erros": [{"Codigo": "E2220", "Descricao": "Nenhum documento localizado"}]}))
+    import nfse_nacional.interface.aba_notas as mod
+    original = mod.Emissor
+    mod.Emissor = lambda b, e, c: original(b, e, c, sessao=s)
+    try:
+        janela.aba_notas._sincronizar()
+        QThreadPool.globalInstance().waitForDone(10000)
+        QApplication.processEvents()
+    finally:
+        mod.Emissor = original
+    assert any("0 documento(s)" in t for _, t in janela.avisos), janela.avisos
+    assert "adn.nfse.gov.br" in s.chamadas[0][1]          # consultou PRODUÇÃO
+
+
 def test_dados_invalidos_nao_enviam(janela):
     a = janela.aba_emitir
     a.descricao.clear()

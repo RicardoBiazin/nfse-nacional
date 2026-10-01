@@ -76,8 +76,7 @@ se a Sefin confirmar que ela não existe. Número de DPS reservado nunca é reut
 - Teste ponta a ponta em Produção Restrita com um A1 real (os testes automáticos usam
   certificado autoassinado e API simulada; o servidor recusa certificado fora da ICP-Brasil).
 - Substituição de NFS-e pela interface (o modelo `DPS.ch_substituida` já existe).
-- Confirmar os nomes dos campos JSON do ADN (`LoteDFe`, `ArquivoXml`, `UltimoNSU`...) na primeira
-  sincronização real; o Swagger só abre com certificado.
+- (feito na 0.1.2) Campos JSON do ADN confirmados com o servidor real.
 
 ## Referências
 

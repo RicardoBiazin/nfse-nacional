@@ -1,6 +1,7 @@
 """Aba de notas: lista, sincronização com o ADN, cancelamento, DANFSe, exportação."""
 from __future__ import annotations
 
+import dataclasses
 import os
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDateEdit, QDialog,
 from .. import exportar
 from ..banco import Banco
 from ..eventos import MOTIVOS_CANCELAMENTO
+from ..servico import Emissor
 from .comum import em_segundo_plano, moeda, mostrar_erro
 
 COLUNAS = [("Situação", "situacao"), ("Origem", "origem"), ("Nº NFS-e", "numero"),
@@ -56,8 +58,15 @@ class AbaNotas(QWidget):
         self.obter_emissor = obter_emissor      # (silencioso=False) -> Emissor | None
         self.obter_empresa = obter_empresa      # () -> Empresa | None (listar não exige certificado)
 
+        # Consulta é só leitura: por padrão mostra PRODUÇÃO (onde estão as notas reais),
+        # independente do ambiente de emissão da empresa.
+        self.ambiente = QComboBox()
+        self.ambiente.addItem("Produção", "producao")
+        self.ambiente.addItem("Produção Restrita", "producao_restrita")
+        self.ambiente.currentIndexChanged.connect(self.recarregar)
+
         hoje = QDate.currentDate()
-        self.inicio = QDateEdit(QDate(hoje.year(), hoje.month(), 1)); self.inicio.setCalendarPopup(True)
+        self.inicio = QDateEdit(QDate(hoje.year(), 1, 1)); self.inicio.setCalendarPopup(True)
         self.fim = QDateEdit(hoje.addMonths(1)); self.fim.setCalendarPopup(True)
         for d in (self.inicio, self.fim):
             d.setDisplayFormat("dd/MM/yyyy")
@@ -75,10 +84,13 @@ class AbaNotas(QWidget):
         self.busca.returnPressed.connect(self.recarregar)
 
         filtros = QHBoxLayout()
-        for rot, w in (("De", self.inicio), ("até", self.fim), ("Origem", self.origem),
+        for rot, w in (("Ambiente", self.ambiente), ("De", self.inicio), ("até", self.fim), ("Origem", self.origem),
                        ("Situação", self.situacao)):
             filtros.addWidget(QLabel(rot)); filtros.addWidget(w)
         filtros.addWidget(self.busca, 1)
+        bt_buscar = QPushButton("Buscar")
+        bt_buscar.clicked.connect(self.recarregar)
+        filtros.addWidget(bt_buscar)
 
         self.tabela = QTableWidget(0, len(COLUNAS))
         self.tabela.setHorizontalHeaderLabels([c[0] for c in COLUNAS])
@@ -114,7 +126,7 @@ class AbaNotas(QWidget):
         if not emp:
             return
         ini, fim = self._datas()
-        self._linhas = self.banco.notas(emp.id, emp.ambiente, ini, fim,
+        self._linhas = self.banco.notas(emp.id, self.ambiente.currentData(), ini, fim,
                                         self.origem.currentData(), self.situacao.currentData(),
                                         self.busca.text().strip())
         self.tabela.setRowCount(len(self._linhas))
@@ -139,6 +151,14 @@ class AbaNotas(QWidget):
         self.tabela.setColumnWidth(6, 260)
         self.status.setText(f"{len(self._linhas)} nota(s). Emitidas autorizadas no período: R$ {moeda(total)}")
 
+    def mostrar_ambiente(self, ambiente: str):
+        """Após emitir, mostra o ambiente onde a nota foi emitida."""
+        i = self.ambiente.findData(ambiente)
+        if i >= 0 and i != self.ambiente.currentIndex():
+            self.ambiente.setCurrentIndex(i)      # dispara recarregar()
+        else:
+            self.recarregar()
+
     def _selecionadas(self):
         linhas = sorted({i.row() for i in self.tabela.selectedIndexes()})
         return [self._linhas[i] for i in linhas]
@@ -151,27 +171,45 @@ class AbaNotas(QWidget):
         return sel[0]
 
     # ------------------------------------------------------------ ações
-    def _sincronizar(self):
+    def _emissor(self):
+        """Emissor no ambiente que está sendo visualizado (não no de emissão da empresa)."""
         em = self.obter_emissor()
+        if not em:
+            return None
+        amb = self.ambiente.currentData()
+        if em.empresa.ambiente == amb:
+            return em
+        return Emissor(self.banco, dataclasses.replace(em.empresa, ambiente=amb), em.cert)
+
+    def _sincronizar(self):
+        em = self._emissor()
         if not em:
             return
         b = self.botoes["Sincronizar ADN"]
-        b.setEnabled(False)
+        b.setEnabled(False); b.setText("Sincronizando…")
+        nome_amb = self.ambiente.currentText()
+        self.status.setText(f"Consultando o ADN ({nome_amb})…")
 
         def fim(n):
-            b.setEnabled(True)
-            self.status.setText(f"Sincronização concluída: {n} documento(s) novo(s).")
+            b.setEnabled(True); b.setText("Sincronizar ADN")
             self.recarregar()
+            texto = f"{n} documento(s) novo(s) baixado(s) do ADN ({nome_amb})."
+            if n == 0 and self.ambiente.currentData() == "producao_restrita":
+                texto += ("\n\nA Produção Restrita é o ambiente de testes: só tem as notas "
+                          "emitidas em teste. Suas notas reais estão em 'Produção'.")
+            elif n and not self._linhas:
+                texto += "\n\nNenhuma aparece no período filtrado: ajuste as datas."
+            QMessageBox.information(self, "Sincronização", texto)
 
         def falha(e):
-            b.setEnabled(True)
+            b.setEnabled(True); b.setText("Sincronizar ADN")
             self.recarregar()
             mostrar_erro(self, e, "Sincronização")
         em_segundo_plano(lambda cb: em.sincronizar(cb), fim, falha, progresso=self.status.setText)
 
     def _reconsultar(self):
         n = self._uma()
-        em = self.obter_emissor()
+        em = self._emissor()
         if not (n and em):
             return
         em_segundo_plano(lambda: em.reconsultar(n["id"]),
@@ -181,11 +219,15 @@ class AbaNotas(QWidget):
 
     def _cancelar(self):
         n = self._uma()
-        em = self.obter_emissor()
+        em = self._emissor()
         if not (n and em):
             return
         if n["origem"] != "emitida" or n["situacao"] != "autorizada":
             QMessageBox.information(self, "Cancelar", "Só notas emitidas e autorizadas podem ser canceladas.")
+            return
+        if em.empresa.ambiente == "producao" and QMessageBox.question(
+                self, "Cancelar", f"Cancelar a NFS-e nº {n['numero']} em PRODUÇÃO? "
+                "O cancelamento é definitivo.") != QMessageBox.StandardButton.Yes:
             return
         d = DialogoCancelar(self)
         if d.exec() != QDialog.DialogCode.Accepted:
@@ -198,7 +240,7 @@ class AbaNotas(QWidget):
 
     def _danfse(self):
         n = self._uma()
-        em = self.obter_emissor()
+        em = self._emissor()
         if not (n and em):
             return
         arq, _ = QFileDialog.getSaveFileName(self, "Salvar DANFSe", f"DANFSe_{n['numero'] or n['chave']}.pdf",
@@ -231,7 +273,7 @@ class AbaNotas(QWidget):
         dlg.exec()
 
     def _importar_xml(self):
-        em = self.obter_emissor()
+        em = self._emissor()
         if not em:
             return
         arqs, _ = QFileDialog.getOpenFileNames(self, "Importar XML de NFS-e/evento", "", "XML (*.xml)")
