@@ -234,3 +234,28 @@ def test_aliquota_travada_no_simples_sem_retencao(janela):
     a.p_aliq.setText("6")
     a._regra_aliquota()
     assert a.p_aliq.text() == "" and not a.p_aliq.isEnabled()
+
+
+def test_percentual_simples_por_nota_vira_padrao(janela):
+    from PySide6.QtCore import QThreadPool
+    from nfse_nacional.config import NS_NFSE
+    from lxml import etree
+    a = janela.aba_emitir
+    assert a.p_sn.isVisibleTo(janela) and a.p_sn.text() in ("0,00", "")
+    em = janela.emissor()
+    enviado = {}
+
+    def ok(u, k):
+        from nfse_nacional import compactacao
+        enviado["dps"] = compactacao.de_gzip_b64(k["json"]["dpsXmlGZipB64"])
+        return _emissao_ok(u, k)
+    s = SessaoFalsa(); s.rota("POST", r"/nfse$", ok); em._sessao = s
+    a.t_doc.setText("12345678909"); a.t_nome.setText("Fulano"); a.v_serv.setText("100")
+    a.p_sn.setText("8,47")
+    a._emitir()
+    QThreadPool.globalInstance().waitForDone(10000)
+    QApplication.processEvents()
+    dps = etree.fromstring(enviado["dps"])
+    assert dps.findtext(".//{%s}pTotTribSN" % NS_NFSE) == "8.47"
+    assert janela.banco.empresa_por_cnpj(CNPJ).p_tot_sn == "8.47"
+    assert a.p_sn.text() == "8,47"                      # próxima nota já vem com o novo padrão

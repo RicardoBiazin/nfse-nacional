@@ -55,6 +55,7 @@ class DadosNota:
     info_complementar: str = ""
     trib_fed: TributosFederais = field(default_factory=TributosFederais)
     incluir_ibscbs: bool = True
+    p_tot_trib_sn: Decimal | None = None      # None = padrão da empresa (muda todo mês no SN)
 
 
 @dataclass
@@ -243,7 +244,8 @@ class Emissor:
                             p_tot_trib_fed=_dec(e.p_tot_fed) or Decimal(0),
                             p_tot_trib_est=_dec(e.p_tot_est) or Decimal(0),
                             p_tot_trib_mun=_dec(e.p_tot_mun) or Decimal(0),
-                            p_tot_trib_sn=_dec(e.p_tot_sn) or Decimal(0)),
+                            p_tot_trib_sn=(d.p_tot_trib_sn if d.p_tot_trib_sn is not None
+                                           else _dec(e.p_tot_sn) or Decimal(0))),
             ibscbs=ibs,
         )
 

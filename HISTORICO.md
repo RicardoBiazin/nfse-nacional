@@ -95,3 +95,9 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   Cadastro da empresa restaurado (backup do banco em `nfse_nacional_backup_20261001.db`).
 - Campo "Alíquota ISS" trava sozinho quando a regra proíbe informá-la (ex.: Simples Nacional
   sem retenção) e avisa quando é obrigatória (com retenção), evitando E0595/E0617 e afins.
+
+## 0.6.2 — 01/10/2026
+
+- Emitir: campo **"Tributos aprox. Simples (%)"** (só para ME/EPP) com a alíquota efetiva do
+  mês, por nota (`pTotTribSN`). Vem preenchido com o padrão da empresa e, ao emitir, o valor
+  usado vira o novo padrão — a alíquota do Simples varia mês a mês com a receita de 12 meses.

@@ -120,6 +120,12 @@ class AbaEmitir(QWidget):
         f.addRow("Tributação do ISSQN", self.trib)
         f.addRow("Retenção do ISSQN", self.ret)
         f.addRow("Alíquota ISS (%)", self.p_aliq)
+        self.p_sn = QLineEdit()
+        self.p_sn.setToolTip("Percentual aproximado dos tributos do Simples Nacional (Lei 12.741), "
+                             "a alíquota efetiva do mês. O valor usado na emissão vira o novo "
+                             "padrão da empresa.")
+        self.rot_sn = QLabel("Tributos aprox. Simples (%)")
+        f.addRow(self.rot_sn, self.p_sn)
         f.addRow("", self.ibs)
 
         bt_validar = QPushButton("Validar e salvar XML (não envia)")
@@ -239,6 +245,10 @@ class AbaEmitir(QWidget):
         e = emissor.empresa if emissor else None
         self._empresa_atual = e
         self._regra_aliquota()
+        sn = bool(e and e.op_simp_nac == "3")
+        self.p_sn.setVisible(sn); self.rot_sn.setVisible(sn)
+        if sn:
+            self.p_sn.setText(moeda(e.p_tot_sn or "0"))
         self.c_trib_nac.definir_padrao(e.c_trib_nac if e else "")
         self.c_nbs.definir_padrao(e.c_nbs if e else "")
         self.c_loc.definir_padrao(e.c_mun if e else "")
@@ -295,7 +305,8 @@ class AbaEmitir(QWidget):
             p_aliq=p_aliq, usar_aliquota_padrao=p_aliq is None,
             tp_ret_issqn=self.ret.currentData(), trib_issqn=self.trib.currentData(),
             v_desc_incond=para_decimal(self.v_desc.text()),
-            info_complementar=self.info.text().strip(), incluir_ibscbs=self.ibs.isChecked())
+            info_complementar=self.info.text().strip(), incluir_ibscbs=self.ibs.isChecked(),
+            p_tot_trib_sn=para_decimal(self.p_sn.text()) if not self.p_sn.isHidden() else None)
 
     def _simular(self):
         em = self.obter_emissor()
@@ -339,6 +350,12 @@ class AbaEmitir(QWidget):
             self._atualizar_completer()
             self.emitida.emit()
             if r.situacao == "autorizada":
+                if d.p_tot_trib_sn is not None:
+                    # Alíquota efetiva do SN muda todo mês: a última usada vira o padrão.
+                    novo = f"{d.p_tot_trib_sn:.2f}"
+                    if novo != em.empresa.p_tot_sn:
+                        em.empresa.p_tot_sn = novo
+                        self.banco.salvar_empresa(em.empresa)
                 QMessageBox.information(self, "NFS-e autorizada",
                                         f"NFS-e nº {r.numero}\nChave: {r.chave}"
                                         + (f"\n\nAvisos: {r.mensagem}" if r.mensagem else ""))
