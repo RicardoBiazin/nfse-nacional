@@ -200,3 +200,37 @@ def test_campo_codigo_descreve_e_busca_por_descricao(app):
     n = CampoCodigo("nbs", 9)
     n.setText("115011000")
     assert "consultoria em tecnologia" in n.desc.text()
+
+
+def test_nova_empresa_com_cnpj_existente_nao_apaga_cadastro(janela, tmp_path):
+    """Regressão: até a 0.6.0, importar o certificado em 'Nova empresa' e salvar
+    sobrescrevia a empresa existente com o formulário vazio."""
+    from nfse_nacional.interface.dialogo_empresa import DialogoEmpresa
+    from .conftest import _pfx
+    b = janela.banco
+    antes = b.empresa_por_cnpj(CNPJ)
+    pfx = tmp_path / "mesmo.pfx"; pfx.write_bytes(_pfx(CNPJ, SENHA, 500))
+    d = DialogoEmpresa(b, None, janela)
+    assert d.adicionar_certificado(str(pfx), SENHA)
+    assert d.e.id == antes.id and d.c_mun.text() == "4115200" and d.c_trib_nac.text() == "010701"
+    d._salvar()
+    depois = b.empresa_por_cnpj(CNPJ)
+    assert (depois.c_mun, depois.reg_ap_trib_sn, depois.c_trib_nac, depois.descricao_padrao) == \
+        ("4115200", "1", "010701", "Serviço padrão")
+    assert len(b.certificados(antes.id)) == 2 and len(b.empresas()) == 1
+    # Salvar direto (CNPJ digitado) também não sobrescreve
+    d2 = DialogoEmpresa(b, None, janela)
+    d2.cnpj.setText(CNPJ)
+    d2._salvar()
+    assert b.empresa_por_cnpj(CNPJ).c_trib_nac == "010701"
+
+
+def test_aliquota_travada_no_simples_sem_retencao(janela):
+    a = janela.aba_emitir                      # empresa do fixture: ME/EPP, apuração pelo SN
+    assert not a.p_aliq.isEnabled()
+    a.ret.setCurrentIndex(a.ret.findData("2"))  # retido pelo tomador: passa a ser obrigatória
+    assert a.p_aliq.isEnabled() and "obrigatória" in a.p_aliq.placeholderText()
+    a.ret.setCurrentIndex(a.ret.findData("1"))
+    a.p_aliq.setText("6")
+    a._regra_aliquota()
+    assert a.p_aliq.text() == "" and not a.p_aliq.isEnabled()

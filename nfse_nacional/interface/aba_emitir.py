@@ -111,6 +111,9 @@ class AbaEmitir(QWidget):
         self.trib = _combo(TRIB_ISSQN)
         self.ret = _combo(RETENCAO)
         self.p_aliq = QLineEdit(); self.p_aliq.setPlaceholderText("vazio = automático pela regra")
+        self._empresa_atual = None
+        self.trib.currentIndexChanged.connect(self._regra_aliquota)
+        self.ret.currentIndexChanged.connect(self._regra_aliquota)
         self.ibs = QCheckBox("Enviar grupo IBS/CBS configurado na empresa"); self.ibs.setChecked(True)
         f.addRow("Valor do serviço (R$)", self.v_serv)
         f.addRow("Desconto incondicionado", self.v_desc)
@@ -198,6 +201,7 @@ class AbaEmitir(QWidget):
         self.v_serv.setText(moeda(d.v_serv))
         self.v_desc.setText(moeda(d.v_desc_incond) if d.v_desc_incond else "")
         self.p_aliq.setText(moeda(d.p_aliq) if d.p_aliq is not None else "")
+        self._regra_aliquota()
         self.trib.setCurrentIndex(max(self.trib.findData(d.trib_issqn), 0))
         self.ret.setCurrentIndex(max(self.ret.findData(d.tp_ret_issqn), 0))
         self.compet.setDate(QDate.currentDate())
@@ -212,8 +216,29 @@ class AbaEmitir(QWidget):
                      (self.t_cpl, t.complemento), (self.t_bairro, t.bairro)):
             w.setText(v)
 
+    def _regra_aliquota(self, *_):
+        """Trava o campo quando a RN proíbe pAliq (ex.: Simples Nacional sem retenção)."""
+        from .. import regras
+        e = self._empresa_atual
+        if not e:
+            return
+        conv = None if e.convenio_ativo is None else bool(e.convenio_ativo)
+        exig = regras.aliquota_exigida(e.op_simp_nac, e.reg_ap_trib_sn, e.reg_esp_trib,
+                                       self.trib.currentData(), self.ret.currentData(), conv)
+        if exig == regras.PROIBIDA:
+            self.p_aliq.clear()
+            self.p_aliq.setEnabled(False)
+            self.p_aliq.setPlaceholderText("não se informa nesta situação (o ISS é apurado pelo regime da empresa)")
+        else:
+            self.p_aliq.setEnabled(True)
+            self.p_aliq.setPlaceholderText(
+                "obrigatória: informe a alíquota do ISS (máx. 5%)" if exig == regras.OBRIGATORIA
+                else "vazio = automático pela regra")
+
     def preencher_padroes(self, emissor: Emissor | None):
         e = emissor.empresa if emissor else None
+        self._empresa_atual = e
+        self._regra_aliquota()
         self.c_trib_nac.definir_padrao(e.c_trib_nac if e else "")
         self.c_nbs.definir_padrao(e.c_nbs if e else "")
         self.c_loc.definir_padrao(e.c_mun if e else "")

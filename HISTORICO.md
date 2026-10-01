@@ -86,3 +86,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - **Exportar XML/PDF…**: das notas selecionadas (Ctrl/Shift + clique, Ctrl+A) ou de todas as
   listadas, escolhendo XML (com eventos), PDF do DANFSe ou os dois. Arquivos `NFSe_<nº>_<chave>`.
 - CLI: `importar CNPJ caminhos...` e `exportar --pdf-pasta`.
+
+## 0.6.1 — 01/10/2026
+
+- **Correção grave:** "Nova empresa" com certificado (ou CNPJ) de empresa já cadastrada
+  sobrescrevia o cadastro existente com o formulário vazio (município, regime do SN, serviço
+  padrão, NBS, descrição). Agora o app abre o cadastro existente e só adiciona o certificado.
+  Cadastro da empresa restaurado (backup do banco em `nfse_nacional_backup_20261001.db`).
+- Campo "Alíquota ISS" trava sozinho quando a regra proíbe informá-la (ex.: Simples Nacional
+  sem retenção) e avisa quando é obrigatória (com retenção), evitando E0595/E0617 e afins.

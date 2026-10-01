@@ -205,7 +205,10 @@ class DialogoEmpresa(QDialog):
     def adicionar_certificado(self, arq: str, senha: str) -> bool:
         try:
             previa = Certificado.de_arquivo(arq, senha)
-            if not self.e.id:
+            digitado = so_digitos(self.cnpj.text())
+            if not self.e.id and self._abrir_existente(digitado or previa.documento[1]):
+                pass                           # empresa já cadastrada: o certificado vai para ela
+            elif not self.e.id:
                 # Empresa nova: o CNPJ vem do primeiro certificado; grava para ter id.
                 self.e = self._coletar()
                 self.e.cnpj = self.e.cnpj or previa.documento[1]
@@ -294,11 +297,48 @@ class DialogoEmpresa(QDialog):
         e.ibs_c_class_trib = so_digitos(self.ibs_class.text())
         return e
 
+    def _abrir_existente(self, cnpj: str) -> bool:
+        """'Nova empresa' com um CNPJ já cadastrado: carrega o cadastro existente na tela
+        em vez de sobrescrevê-lo com o formulário vazio (bug até a 0.6.0)."""
+        existente = self.banco.empresa_por_cnpj(cnpj)
+        if not existente:
+            return False
+        QMessageBox.information(
+            self, "Empresa já cadastrada",
+            f"{existente.razao or cnpj} já está cadastrada. Abri o cadastro existente "
+            "para você conferir; nada foi apagado.")
+        self.e = existente
+        self._preencher(existente)
+        return True
+
+    def _preencher(self, e: Empresa):
+        def sel(c, valor):
+            i = c.findData(valor)
+            c.setCurrentIndex(i if i >= 0 else 0)
+        self.cnpj.setText(e.cnpj); self.cnpj.setReadOnly(True)
+        for w, v in ((self.razao, e.razao), (self.im, e.im), (self.c_mun, e.c_mun),
+                     (self.fone, e.fone), (self.email, e.email), (self.serie, e.serie),
+                     (self.p_aliq, e.p_aliq), (self.p_fed, e.p_tot_fed), (self.p_est, e.p_tot_est),
+                     (self.p_mun, e.p_tot_mun), (self.p_sn, e.p_tot_sn),
+                     (self.c_trib_nac, e.c_trib_nac), (self.c_trib_mun, e.c_trib_mun),
+                     (self.c_nbs, e.c_nbs), (self.descr, e.descricao_padrao),
+                     (self.ibs_ind, e.ibs_c_ind_op), (self.ibs_cst, e.ibs_cst),
+                     (self.ibs_class, e.ibs_c_class_trib)):
+            w.setText(v or "")
+        for c, v in ((self.ambiente, e.ambiente), (self.op_simp_nac, e.op_simp_nac),
+                     (self.reg_ap, e.reg_ap_trib_sn), (self.reg_esp, e.reg_esp_trib),
+                     (self.convenio, e.convenio_ativo)):
+            sel(c, v)
+        self.proximo.setValue(self.banco.proximo_numero(e.id, e.ambiente, e.serie))
+        self._recarregar_certs()
+
     def _salvar(self):
         e = self._coletar()
         if len(e.cnpj) not in (11, 14):
             QMessageBox.warning(self, "Empresa", "Importe o certificado para identificar o CNPJ.")
             return
+        if not e.id and self._abrir_existente(e.cnpj):
+            return                             # usuário confere o cadastro e salva de novo
         if e.ambiente == "producao":
             r = QMessageBox.question(
                 self, "Produção",
