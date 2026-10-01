@@ -21,7 +21,7 @@ UF_POR_CODIGO = {
 def _ler(nome: str) -> dict[str, str]:
     try:
         with open(pasta_base() / "recursos" / nome, encoding="utf-8") as f:
-            return dict(ln.rstrip("\n").split(";", 1) for ln in f if ";" in ln)
+            return dict(ln.rstrip("\r\n").split(";", 1) for ln in f if ";" in ln)
     except OSError:
         return {}
 
