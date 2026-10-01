@@ -107,7 +107,11 @@ def main(argv=None) -> int:
     p = sub.add_parser("exportar")
     p.add_argument("cnpj")
     p.add_argument("--inicio", default=""); p.add_argument("--fim", default="")
-    p.add_argument("--xlsx"); p.add_argument("--xml-pasta")
+    p.add_argument("--xlsx"); p.add_argument("--xml-pasta"); p.add_argument("--pdf-pasta")
+
+    p = sub.add_parser("importar", help="importa XML, PDF de DANFSe ou ZIP (arquivos ou pastas)")
+    p.add_argument("cnpj")
+    p.add_argument("caminhos", nargs="+")
 
     a = ap.parse_args(argv)
     banco = Banco(a.banco) if a.banco else Banco()
@@ -201,9 +205,18 @@ def _executar(a, banco: Banco) -> int:
         if a.xlsx:
             exportar.exportar_xlsx(linhas, a.xlsx)
             print(f"Planilha: {a.xlsx} ({len(linhas)} notas)")
-        if a.xml_pasta:
-            n = exportar.exportar_xmls(banco, [ln["id"] for ln in linhas], a.xml_pasta)
-            print(f"{n} XML(s) em {a.xml_pasta}")
+        ids = [ln["id"] for ln in linhas]
+        for pasta, xml, pdf in ((a.xml_pasta, True, False), (a.pdf_pasta, False, True)):
+            if pasta:
+                n_xml, n_pdf, erros = exportar.exportar_notas(banco, ids, pasta, xml, pdf)
+                print(f"{n_xml or n_pdf} {'XML' if xml else 'PDF'}(s) em {pasta}")
+                for e in erros:
+                    print("  ", e)
+    elif a.cmd == "importar":
+        r = em.importar_arquivos(a.caminhos, progresso=print)
+        print(r)
+        for e in r.erros:
+            print("  ", e)
     return 0
 
 

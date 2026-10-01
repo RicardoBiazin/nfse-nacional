@@ -77,3 +77,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   para rodar de Google Drive/pasta de rede. A versão em pasta copiada para o Drive dava
   "Failed to load Python DLL ... python313.dll" (DLL carregada do drive virtual). Testado
   abrindo direto de `G:\Drives compartilhados\...`.
+
+## 0.6.0 — 01/10/2026
+
+- **Importar XML/PDF…** (aba Notas): vários arquivos ou uma pasta inteira (com subpastas), XML,
+  PDF de DANFSe e .zip. Do PDF o app lê a chave de acesso e baixa o XML oficial da Sefin
+  (testado em produção com a NFS-e nº 17), e busca os eventos no ADN. Notas repetidas são puladas.
+- **Exportar XML/PDF…**: das notas selecionadas (Ctrl/Shift + clique, Ctrl+A) ou de todas as
+  listadas, escolhendo XML (com eventos), PDF do DANFSe ou os dois. Arquivos `NFSe_<nº>_<chave>`.
+- CLI: `importar CNPJ caminhos...` e `exportar --pdf-pasta`.

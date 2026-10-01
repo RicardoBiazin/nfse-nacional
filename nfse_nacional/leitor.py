@@ -102,3 +102,26 @@ def ler_evento(xml) -> ResumoEvento:
     return ResumoEvento(
         chave=_t(inf_ped, "n:chNFSe"), tipo=tipo, descricao=desc,
         dh_proc=_t(raiz, ".//n:infEvento/n:dhProc") or _t(inf_ped, "n:dhEvento"))
+
+
+def chaves_em_pdf(pdf: bytes) -> list[str]:
+    """Chaves de acesso (50 dígitos) encontradas no texto de um DANFSe em PDF."""
+    import io
+    import re
+
+    from pypdf import PdfReader
+
+    from .tabelas import UF_POR_CODIGO
+    texto = "\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(pdf)).pages)
+    # 1º: a chave inteira, isolada (DANFSe do app e do portal).
+    achadas = re.findall(r"(?<!\d)\d{50}(?!\d)", texto)
+    if not achadas:
+        # PDFs de outros sistemas às vezes quebram a chave com espaços (blocos de 4).
+        for bloco in re.findall(r"(?<![\d])(?:\d{4}\s){12}\d{2}(?![\d])", texto):
+            achadas.append(re.sub(r"\s", "", bloco))
+    chaves: list[str] = []
+    for c in achadas:
+        # Chave de NFS-e começa pelo código IBGE do município emissor.
+        if c[:2] in UF_POR_CODIGO and c not in chaves:
+            chaves.append(c)
+    return chaves

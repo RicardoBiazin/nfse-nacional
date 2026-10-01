@@ -8,7 +8,7 @@ a = Analysis(
     ["main.py"],
     datas=[("schemas", "schemas"), ("recursos", "recursos")],
     hiddenimports=collect_submodules("keyring.backends") + ["win32ctypes.core"],
-    excludes=["tkinter", "pytest", "xmlsec", "pypdfium2", "pypdf",
+    excludes=["tkinter", "pytest", "xmlsec", "pypdfium2",
               "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtQml",
               "PySide6.QtQuick", "PySide6.Qt3DCore", "PySide6.QtMultimedia", "PySide6.QtPdf"],
 )

@@ -50,22 +50,43 @@ def exportar_xlsx(linhas, destino: str | Path) -> Path:
     return destino
 
 
-def exportar_xmls(banco: Banco, ids: list[int], pasta: str | Path) -> int:
-    """Grava o XML da NFS-e (ou a DPS, se não houver nota) e os eventos de cada nota."""
+def _nome_base(nota) -> str:
+    if nota["chave"]:
+        return f"NFSe_{nota['numero'] or 's-n'}_{nota['chave']}"
+    return nota["id_dps"] or f"nota_{nota['id']}"
+
+
+def exportar_notas(banco: Banco, ids: list[int], pasta: str | Path, xml: bool = True,
+                   pdf: bool = True, progresso=None) -> tuple[int, int, list[str]]:
+    """XML (+ eventos) e/ou DANFSe em PDF de várias notas. Devolve (n_xml, n_pdf, erros)."""
+    from .danfse import gerar_pdf
+    from .servico import marca_dagua
     pasta = Path(pasta)
     pasta.mkdir(parents=True, exist_ok=True)
-    n = 0
-    for id_ in ids:
+    avisar = progresso or (lambda _m: None)
+    n_xml = n_pdf = 0
+    erros: list[str] = []
+    for i, id_ in enumerate(ids, 1):
         nota = banco.nota(id_)
         if not nota:
             continue
-        if nota["nfse_xml"]:
-            (pasta / f"NFSe_{nota['chave']}.xml").write_bytes(nota["nfse_xml"])
-            n += 1
-        elif nota["dps_xml"]:
-            (pasta / f"{nota['id_dps']}.xml").write_bytes(nota["dps_xml"])
-            n += 1
-        if nota["chave"]:
-            for ev in banco.eventos(nota["chave"]):
-                (pasta / f"Evento_{nota['chave']}_{ev['tipo']}.xml").write_bytes(ev["xml"])
-    return n
+        base = _nome_base(nota)
+        avisar(f"Exportando {i}/{len(ids)}: {base}")
+        if xml:
+            conteudo = nota["nfse_xml"] or nota["dps_xml"]
+            if conteudo:
+                (pasta / f"{base}.xml").write_bytes(conteudo)
+                n_xml += 1
+            if nota["chave"]:
+                for ev in banco.eventos(nota["chave"]):
+                    (pasta / f"{base}_evento_{ev['tipo']}.xml").write_bytes(ev["xml"])
+        if pdf:
+            if not nota["nfse_xml"]:
+                erros.append(f"{base}: sem XML da NFS-e (nota não autorizada) — PDF não gerado")
+                continue
+            try:
+                (pasta / f"{base}.pdf").write_bytes(gerar_pdf(nota["nfse_xml"], marca_dagua(banco, nota)))
+                n_pdf += 1
+            except Exception as erro:      # noqa: BLE001
+                erros.append(f"{base}: {erro}")
+    return n_xml, n_pdf, erros

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDateEdit, QDialog,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDateEdit, QDialog,
                                QDialogButtonBox, QFileDialog, QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit,
                                QMessageBox, QPlainTextEdit, QPushButton,
@@ -96,6 +96,8 @@ class AbaNotas(QWidget):
         self.tabela = QTableWidget(0, len(COLUNAS))
         self.tabela.setHorizontalHeaderLabels([c[0] for c in COLUNAS])
         self.tabela.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tabela.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.tabela.setToolTip("Ctrl/Shift + clique seleciona várias notas; Ctrl+A seleciona todas")
         self.tabela.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabela.verticalHeader().setVisible(False)
         self.tabela.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
@@ -105,8 +107,8 @@ class AbaNotas(QWidget):
         acoes = QHBoxLayout()
         botoes = [("Sincronizar ADN", self._sincronizar), ("Duplicar nota", self._duplicar), ("Reconsultar", self._reconsultar),
                   ("DANFSe (PDF)", self._danfse), ("Cancelar NFS-e", self._cancelar),
-                  ("Ver XML", self._ver_xml), ("Importar XML", self._importar_xml),
-                  ("Exportar XLSX", self._exportar_xlsx), ("Exportar XMLs", self._exportar_xmls)]
+                  ("Ver XML", self._ver_xml), ("Importar XML/PDF…", self._importar_xml),
+                  ("Exportar XLSX", self._exportar_xlsx), ("Exportar XML/PDF…", self._exportar_xmls)]
         self.botoes = {}
         for rot, fn in botoes:
             b = QPushButton(rot); b.clicked.connect(fn); acoes.addWidget(b); self.botoes[rot] = b
@@ -291,19 +293,43 @@ class AbaNotas(QWidget):
         dlg.exec()
 
     def _importar_xml(self):
+        caixa = QMessageBox(QMessageBox.Icon.Question, "Importar XML/PDF",
+                            "Importar notas a partir de arquivos XML, PDF (DANFSe) ou ZIP.\n\n"
+                            "XML entra direto. Do PDF o app lê a chave de acesso e baixa o XML "
+                            "oficial da Sefin (precisa de internet).", parent=self)
+        b_arq = caixa.addButton("Escolher arquivos…", QMessageBox.ButtonRole.AcceptRole)
+        b_pasta = caixa.addButton("Pasta inteira…", QMessageBox.ButtonRole.AcceptRole)
+        caixa.addButton(QMessageBox.StandardButton.Cancel)
+        caixa.exec()
+        if caixa.clickedButton() is b_arq:
+            caminhos, _ = QFileDialog.getOpenFileNames(
+                self, "Importar NFS-e", "", "NFS-e (*.xml *.pdf *.zip);;XML (*.xml);;PDF (*.pdf);;ZIP (*.zip)")
+        elif caixa.clickedButton() is b_pasta:
+            pasta = QFileDialog.getExistingDirectory(self, "Pasta com XML/PDF (inclui subpastas)")
+            caminhos = [pasta] if pasta else []
+        else:
+            return
+        if not caminhos:
+            return
         em = self._emissor()
         if not em:
             return
-        arqs, _ = QFileDialog.getOpenFileNames(self, "Importar XML de NFS-e/evento", "", "XML (*.xml)")
-        erros = []
-        for a in arqs:
-            try:
-                em.importar_xml(Path(a).read_bytes())
-            except Exception as e:      # noqa: BLE001
-                erros.append(f"{Path(a).name}: {e}")
-        self.recarregar()
-        if erros:
-            QMessageBox.warning(self, "Importar", "\n".join(erros))
+        b = self.botoes["Importar XML/PDF…"]
+        b.setEnabled(False)
+
+        def fim(resumo):
+            b.setEnabled(True)
+            self.recarregar()
+            texto = str(resumo)
+            if resumo.erros:
+                texto += "\n\n" + "\n".join(resumo.erros[:30])
+            QMessageBox.information(self, "Importar XML/PDF", texto)
+
+        def falha(e):
+            b.setEnabled(True)
+            mostrar_erro(self, e, "Importar")
+        em_segundo_plano(lambda cb: em.importar_arquivos(caminhos, cb), fim, falha,
+                         progresso=self.status.setText)
 
     def _exportar_xlsx(self):
         if not self._linhas:
@@ -315,10 +341,38 @@ class AbaNotas(QWidget):
             self.status.setText(f"Planilha salva em {arq}")
 
     def _exportar_xmls(self):
-        sel = self._selecionadas() or self._linhas
-        if not sel:
+        sel = self._selecionadas()
+        alvo = sel or self._linhas
+        if not alvo:
             return
-        pasta = QFileDialog.getExistingDirectory(self, "Pasta para os XMLs")
-        if pasta:
-            n = exportar.exportar_xmls(self.banco, [x["id"] for x in sel], pasta)
-            self.status.setText(f"{n} XML(s) salvos em {pasta}")
+        d = QDialog(self)
+        d.setWindowTitle("Exportar XML/PDF")
+        lay = QVBoxLayout(d)
+        lay.addWidget(QLabel(f"{len(sel)} nota(s) selecionada(s)." if sel else
+                             f"Nenhuma nota selecionada: serão exportadas as {len(alvo)} listadas.\n"
+                             "(Ctrl/Shift + clique para escolher; Ctrl+A para todas.)"))
+        c_xml = QCheckBox("XML da NFS-e (e eventos de cancelamento)"); c_xml.setChecked(True)
+        c_pdf = QCheckBox("PDF do DANFSe"); c_pdf.setChecked(True)
+        lay.addWidget(c_xml); lay.addWidget(c_pdf)
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        bb.accepted.connect(d.accept); bb.rejected.connect(d.reject)
+        lay.addWidget(bb)
+        if d.exec() != QDialog.DialogCode.Accepted or not (c_xml.isChecked() or c_pdf.isChecked()):
+            return
+        pasta = QFileDialog.getExistingDirectory(self, "Pasta de destino")
+        if not pasta:
+            return
+        ids = [x["id"] for x in alvo]
+        xml, pdf = c_xml.isChecked(), c_pdf.isChecked()
+
+        def fim(r):
+            n_xml, n_pdf, erros = r
+            texto = f"{n_xml} XML e {n_pdf} PDF salvos em\n{pasta}"
+            if erros:
+                texto += "\n\n" + "\n".join(erros[:30])
+            self.status.setText(texto.splitlines()[0])
+            QMessageBox.information(self, "Exportar XML/PDF", texto)
+            if hasattr(os, "startfile"):
+                os.startfile(pasta)          # noqa: S606 - abre a pasta no Explorer
+        em_segundo_plano(lambda cb: exportar.exportar_notas(self.banco, ids, pasta, xml, pdf, cb),
+                         fim, lambda e: mostrar_erro(self, e, "Exportar"), progresso=self.status.setText)

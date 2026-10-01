@@ -9,6 +9,7 @@ Fluxo de emissão (idempotente):
 from __future__ import annotations
 
 import datetime as dt
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable
@@ -122,6 +123,56 @@ def tomadores_de_notas(banco: Banco, empresa_id: int) -> int:
             banco.salvar_tomador(tom)
             n += 1
     return n
+
+
+@dataclass
+class ResumoImportacao:
+    importados: int = 0
+    ja_existiam: int = 0
+    erros: list[str] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        t = f"{self.importados} documento(s) importado(s)"
+        if self.ja_existiam:
+            t += f", {self.ja_existiam} já existia(m)"
+        if self.erros:
+            t += f", {len(self.erros)} com erro"
+        return t + "."
+
+
+def marca_dagua(banco: Banco, nota) -> str:
+    """CANCELADA / SUBSTITUÍDA para o DANFSe (NT 008, item 2.5)."""
+    if nota["situacao"] != "cancelada" or not nota["chave"]:
+        return ""
+    tipos = {ev["tipo"] for ev in banco.eventos(nota["chave"])}
+    return "SUBSTITUÍDA" if "105102" in tipos else "CANCELADA"
+
+
+def _chave_do_xml(xml: bytes) -> str:
+    m = re.search(rb'Id="NFS(\d{50})"', xml)
+    return m.group(1).decode() if m else ""
+
+
+EXTENSOES = (".xml", ".pdf")
+
+
+def _expandir_arquivos(caminhos):
+    """(nome, função que lê os bytes) para cada XML/PDF em arquivos, pastas e .zip."""
+    import zipfile
+    from pathlib import Path
+    for c in caminhos:
+        p = Path(c)
+        if p.is_dir():
+            yield from _expandir_arquivos(sorted(x for x in p.rglob("*")
+                                                 if x.suffix.lower() in EXTENSOES + (".zip",)))
+        elif p.suffix.lower() == ".zip":
+            with zipfile.ZipFile(p) as z:
+                for nome in z.namelist():
+                    if nome.lower().endswith(EXTENSOES):
+                        dado = z.read(nome)
+                        yield f"{p.name}/{nome}", (lambda d=dado: d)
+        elif p.suffix.lower() in EXTENSOES:
+            yield p.name, (lambda x=p: x.read_bytes())
 
 
 def _dec(texto: str | None) -> Decimal | None:
@@ -367,6 +418,51 @@ class Emissor:
         """Importa um XML de NFS-e ou evento (ex.: baixado no portal)."""
         self._guardar_documento(xml)
 
+    def importar_arquivos(self, caminhos, progresso: Callable[[str], None] | None = None
+                          ) -> "ResumoImportacao":
+        """Importa XMLs, PDFs de DANFSe e .zip (com XML/PDF dentro), arquivos ou pastas.
+
+        XML entra direto. PDF não tem os dados estruturados: o app lê a chave de acesso no
+        texto do DANFSe e baixa o XML oficial da Sefin (precisa de certificado e internet).
+        """
+        avisar = progresso or (lambda _m: None)
+        resumo = ResumoImportacao()
+        itens = list(_expandir_arquivos(caminhos))
+        for i, (nome, ler) in enumerate(itens, 1):
+            avisar(f"Importando {i}/{len(itens)}: {nome}")
+            try:
+                dado = ler()
+                if nome.lower().endswith(".pdf"):
+                    chaves = leitor.chaves_em_pdf(dado)
+                    if not chaves:
+                        raise ValueError("não encontrei a chave de acesso no PDF")
+                    for chave in chaves:
+                        if self.banco.nota_por_chave(chave):
+                            resumo.ja_existiam += 1
+                            continue
+                        self._guardar_documento(self.sefin.consultar_nfse(chave))
+                        self._eventos_da_chave(chave)
+                        resumo.importados += 1
+                else:
+                    chave = _chave_do_xml(dado)
+                    if chave and self.banco.nota_por_chave(chave) and \
+                            leitor.tipo_documento(dado) == "NFSe":
+                        resumo.ja_existiam += 1
+                        continue
+                    self._guardar_documento(dado)
+                    resumo.importados += 1
+            except Exception as erro:      # noqa: BLE001 - segue com os demais
+                resumo.erros.append(f"{nome}: {erro}")
+        return resumo
+
+    def _eventos_da_chave(self, chave: str):
+        """Cancelamentos de uma nota importada por PDF (sem eles ela pareceria autorizada)."""
+        try:
+            for ev in self.adn.eventos(chave):
+                self._guardar_documento(ev)
+        except (ErroApi, requests.RequestException):
+            pass
+
     def danfse(self, nota_id: int) -> bytes:
         """DANFSe gerado localmente (NT 008/2026: a API do ADN foi suspensa em 07/2026)."""
         from .danfse import gerar_pdf
@@ -377,11 +473,7 @@ class Emissor:
         if not xml:
             xml = self.sefin.consultar_nfse(nota["chave"])
             self.banco.atualizar_nota(nota_id, nfse_xml=xml)
-        marca = ""
-        if nota["situacao"] == "cancelada":
-            tipos = {ev["tipo"] for ev in self.banco.eventos(nota["chave"])}
-            marca = "SUBSTITUÍDA" if "105102" in tipos else "CANCELADA"
-        return gerar_pdf(xml, marca)
+        return gerar_pdf(xml, marca_dagua(self.banco, nota))
 
     def parametros_convenio(self) -> dict:
         return self.sefin.parametros_convenio(self.empresa.c_mun)
