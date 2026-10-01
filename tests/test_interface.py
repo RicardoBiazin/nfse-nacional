@@ -178,3 +178,25 @@ def test_dados_invalidos_nao_enviam(janela):
     a.v_serv.setText("10")
     with pytest.raises(ValueError):
         a._dados()
+
+
+def test_campo_codigo_descreve_e_busca_por_descricao(app):
+    from nfse_nacional.interface.comum import CampoCodigo
+    c = CampoCodigo("servico", 6)
+    c.setText("010601")
+    assert c.desc.text() == "010601 - Assessoria e consultoria em informática."
+    c.setText("010601 - Assessoria e consultoria em informática.")
+    assert c.text() == "010601"                                   # grava só o código
+    c.setText("999999")
+    assert "não encontrado" in c.desc.text()
+    c.clear(); c.definir_padrao("010601")
+    assert c.desc.text().startswith("padrão da empresa: 010601")
+    comp = c.edit.completer()
+    comp.setCompletionPrefix("consultoria em inform")
+    assert 1 <= comp.completionCount() < 10
+    m = CampoCodigo("municipio", 7)
+    m.setText("3106200")
+    assert m.desc.text() == "3106200 - Belo Horizonte / MG"
+    n = CampoCodigo("nbs", 9)
+    n.setText("115011000")
+    assert "consultoria em tecnologia" in n.desc.text()

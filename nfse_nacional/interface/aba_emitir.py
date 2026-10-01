@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QCompleter, QDateEdit,
 from ..banco import Banco, Tomador
 from ..dps import so_digitos
 from ..servico import DadosNota, Emissor, dados_de_xml
-from .comum import em_segundo_plano, moeda, mostrar_erro, para_decimal
+from .comum import CampoCodigo, em_segundo_plano, moeda, mostrar_erro, para_decimal
 
 RETENCAO = [("1", "Não retido"), ("2", "Retido pelo tomador"), ("3", "Retido pelo intermediário")]
 TRIB_ISSQN = [("1", "Operação tributável"), ("2", "Imunidade"), ("3", "Exportação de serviço"),
@@ -68,7 +68,7 @@ class AbaEmitir(QWidget):
         self.t_im = QLineEdit()
         self.t_email = QLineEdit()
         self.t_fone = QLineEdit()
-        self.t_cmun = QLineEdit(); self.t_cmun.setPlaceholderText("IBGE")
+        self.t_cmun = CampoCodigo("municipio", 7); self.t_cmun.setPlaceholderText("IBGE ou nome da cidade")
         self.t_cep = QLineEdit()
         self.t_lgr = QLineEdit()
         self.t_nro = QLineEdit()
@@ -88,10 +88,10 @@ class AbaEmitir(QWidget):
         g_serv = QGroupBox("Serviço")
         f = QFormLayout(g_serv)
         self.descricao = QPlainTextEdit(); self.descricao.setFixedHeight(80)
-        self.c_trib_nac = QLineEdit(); self.c_trib_nac.setPlaceholderText("padrão da empresa")
+        self.c_trib_nac = CampoCodigo("servico", 6); self.c_trib_nac.setPlaceholderText("padrão da empresa — digite código ou parte da descrição")
         self.c_trib_mun = QLineEdit(); self.c_trib_mun.setPlaceholderText("padrão da empresa")
-        self.c_nbs = QLineEdit(); self.c_nbs.setPlaceholderText("padrão da empresa")
-        self.c_loc = QLineEdit(); self.c_loc.setPlaceholderText("IBGE do local da prestação (padrão: município da empresa)")
+        self.c_nbs = CampoCodigo("nbs", 9); self.c_nbs.setPlaceholderText("padrão da empresa — digite código ou parte da descrição")
+        self.c_loc = CampoCodigo("municipio", 7); self.c_loc.setPlaceholderText("padrão: município da empresa — IBGE ou nome da cidade")
         self.compet = QDateEdit(QDate.currentDate()); self.compet.setCalendarPopup(True)
         self.compet.setDisplayFormat("dd/MM/yyyy")
         self.info = QLineEdit()
@@ -213,6 +213,10 @@ class AbaEmitir(QWidget):
             w.setText(v)
 
     def preencher_padroes(self, emissor: Emissor | None):
+        e = emissor.empresa if emissor else None
+        self.c_trib_nac.definir_padrao(e.c_trib_nac if e else "")
+        self.c_nbs.definir_padrao(e.c_nbs if e else "")
+        self.c_loc.definir_padrao(e.c_mun if e else "")
         if emissor and not self.descricao.toPlainText().strip():
             self.descricao.setPlainText(emissor.empresa.descricao_padrao)
 

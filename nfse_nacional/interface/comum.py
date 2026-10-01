@@ -103,3 +103,78 @@ def moeda(valor) -> str:
     d = Decimal(str(valor))
     s = f"{d:,.2f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+class CampoCodigo(QWidget):
+    """QLineEdit de código oficial com busca pela descrição e o descritivo logo abaixo.
+
+    tabela: "servico" (cTribNac), "nbs" ou "municipio" (IBGE). Digitar parte da descrição
+    abre a lista; escolher grava só o código. Mantém a interface do QLineEdit usada nas
+    telas (text, setText, clear, setPlaceholderText).
+    """
+
+    def __init__(self, tabela: str, digitos: int, pai=None):
+        from PySide6.QtCore import QStringListModel, Qt, QTimer
+        from PySide6.QtWidgets import QCompleter, QLabel, QLineEdit, QVBoxLayout
+
+        from .. import tabelas
+        super().__init__(pai)
+        self.tabela = tabela
+        self.digitos = digitos
+        self._padrao = ""
+        fonte = {"servico": tabelas.servicos, "nbs": tabelas.nbs,
+                 "municipio": tabelas.municipios}[tabela]()
+        self._fonte = fonte
+        self.edit = QLineEdit()
+        self.desc = QLabel()
+        self.desc.setWordWrap(True)
+        self.desc.setStyleSheet("color: #8a8f98; font-size: 11px;")
+        comp = QCompleter(QStringListModel([f"{c} - {d}" for c, d in fonte.items()], self), self)
+        comp.setFilterMode(Qt.MatchFlag.MatchContains)
+        comp.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        comp.setMaxVisibleItems(12)
+        comp.activated.connect(lambda t: QTimer.singleShot(0, lambda: self.setText(t.split(" - ")[0])))
+        self.edit.setCompleter(comp)
+        self.edit.textChanged.connect(self._atualizar)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(1)
+        lay.addWidget(self.edit)
+        lay.addWidget(self.desc)
+        self._atualizar()
+
+    # interface de QLineEdit
+    def text(self) -> str:
+        t = self.edit.text().strip()
+        return t.split(" - ")[0].strip() if " - " in t else t
+
+    def setText(self, t: str):
+        self.edit.setText(t or "")
+
+    def clear(self):
+        self.edit.clear()
+
+    def setPlaceholderText(self, t: str):
+        self.edit.setPlaceholderText(t)
+
+    def definir_padrao(self, codigo: str):
+        """Código usado quando o campo fica vazio (padrão da empresa): também é descrito."""
+        self._padrao = codigo or ""
+        self._atualizar()
+
+    def _atualizar(self, *_):
+        codigo = "".join(ch for ch in self.text() if ch.isdigit())
+        usado = codigo or self._padrao
+        if not usado:
+            self.desc.setText("")
+            return
+        desc = self._fonte.get(usado.zfill(self.digitos) if self.tabela == "servico" else usado, "")
+        prefixo = "padrão da empresa: " if not codigo else ""
+        if desc:
+            self.desc.setStyleSheet("color: #8a8f98; font-size: 11px;")
+            self.desc.setText(f"{prefixo}{usado} - {desc}")
+        elif len(usado) >= self.digitos:
+            self.desc.setStyleSheet("color: #d08a1a; font-size: 11px;")
+            self.desc.setText(f"{usado}: código não encontrado na tabela oficial")
+        else:
+            self.desc.setText("")

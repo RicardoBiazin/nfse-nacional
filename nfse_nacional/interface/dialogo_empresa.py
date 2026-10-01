@@ -14,7 +14,7 @@ from .. import cofre
 from ..banco import Banco, Empresa
 from ..certificado import Certificado, SenhaCertificadoIncorreta
 from ..dps import so_digitos
-from .comum import em_segundo_plano, mostrar_erro
+from .comum import CampoCodigo, em_segundo_plano, mostrar_erro
 
 OP_SIMP_NAC = [("1", "Não optante"), ("2", "MEI"), ("3", "Simples Nacional ME/EPP")]
 REG_AP_SN = [("", "—"), ("1", "Tributos federais e ISS pelo SN"),
@@ -50,7 +50,7 @@ class DialogoEmpresa(QDialog):
         self.cnpj.setPlaceholderText("vem do certificado")
         self.razao = QLineEdit(self.e.razao)
         self.im = QLineEdit(self.e.im)
-        self.c_mun = QLineEdit(self.e.c_mun); self.c_mun.setPlaceholderText("IBGE, 7 dígitos (ex.: 4115200 Maringá)")
+        self.c_mun = CampoCodigo("municipio", 7); self.c_mun.setText(self.e.c_mun); self.c_mun.setPlaceholderText("IBGE ou nome da cidade")
         self.fone = QLineEdit(self.e.fone)
         self.email = QLineEdit(self.e.email)
         self.serie = QLineEdit(self.e.serie); self.serie.setPlaceholderText("1 a 49999 (70000+ é a série do portal)")
@@ -103,9 +103,9 @@ class DialogoEmpresa(QDialog):
 
         # ---- serviço padrão
         w = QWidget(); f = QFormLayout(w)
-        self.c_trib_nac = QLineEdit(self.e.c_trib_nac); self.c_trib_nac.setPlaceholderText("6 dígitos, ex.: 010701")
+        self.c_trib_nac = CampoCodigo("servico", 6); self.c_trib_nac.setText(self.e.c_trib_nac); self.c_trib_nac.setPlaceholderText("código ou parte da descrição")
         self.c_trib_mun = QLineEdit(self.e.c_trib_mun)
-        self.c_nbs = QLineEdit(self.e.c_nbs); self.c_nbs.setPlaceholderText("9 dígitos (Anexo B)")
+        self.c_nbs = CampoCodigo("nbs", 9); self.c_nbs.setText(self.e.c_nbs); self.c_nbs.setPlaceholderText("código ou parte da descrição")
         self.descr = QLineEdit(self.e.descricao_padrao)
         f.addRow("Cód. tributação nacional", self.c_trib_nac)
         f.addRow("Cód. tributação municipal", self.c_trib_mun)

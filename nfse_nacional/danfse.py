@@ -23,6 +23,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 
 from .config import NS_NFSE, pasta_base
+from .tabelas import UF_POR_CODIGO, nome_municipio
 
 N = {"n": NS_NFSE}
 URL_CONSULTA = "https://www.nfse.gov.br/ConsultaPublica/?tpc=1&chave="
@@ -35,12 +36,6 @@ CINZA = Color(0.95, 0.95, 0.95)            # sombreamento 5 %
 CINZA_MARCA = Color(0.65, 0.65, 0.65, alpha=0.45)
 VERMELHO = Color(0.85, 0, 0)
 
-UF_POR_CODIGO = {
-    "11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA", "16": "AP", "17": "TO",
-    "21": "MA", "22": "PI", "23": "CE", "24": "RN", "25": "PB", "26": "PE", "27": "AL",
-    "28": "SE", "29": "BA", "31": "MG", "32": "ES", "33": "RJ", "35": "SP", "41": "PR",
-    "42": "SC", "43": "RS", "50": "MS", "51": "MT", "52": "GO", "53": "DF",
-}
 
 TP_EMIT = {"1": "Prestador", "2": "Tomador", "3": "Intermediário"}
 C_STAT = {"100": "NFS-e Gerada", "101": "NFS-e de Substituição Gerada",
@@ -95,24 +90,6 @@ def _fontes() -> tuple[str, str, str]:
     return (("Arial" if ok["Arial"] else "Helvetica"),
             ("Arial-Bold" if ok["Arial-Bold"] else "Helvetica-Bold"),
             ("MSSansSerif" if ok["MSSansSerif"] else ("Arial" if ok["Arial"] else "Helvetica")))
-
-
-@lru_cache(maxsize=None)
-def _municipios() -> dict[str, str]:
-    caminho = pasta_base() / "recursos" / "municipios_ibge.csv"
-    try:
-        with open(caminho, encoding="utf-8") as f:
-            return dict(ln.rstrip("\n").split(";", 1) for ln in f if ";" in ln)
-    except OSError:
-        return {}
-
-
-def nome_municipio(c_mun: str) -> str:
-    if not c_mun:
-        return ""
-    nome = _municipios().get(c_mun, c_mun)
-    uf = UF_POR_CODIGO.get(c_mun[:2], "")
-    return f"{nome} / {uf}" if uf else nome
 
 
 # --------------------------------------------------------------------- formatação

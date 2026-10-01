@@ -62,3 +62,11 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Senha no keyring passa a ser por certificado (`CNPJ:serial`); o certificado único das versões
   anteriores é migrado automaticamente na primeira abertura.
 - CLI: `empresa-importar` pode ser repetido (`--principal`, `--cnpj` para filial) e novo `certificados`.
+
+## 0.5.0 — 01/10/2026
+
+- Descritivo oficial abaixo dos campos de código (tributação nacional, NBS, local da prestação,
+  município do tomador e do cadastro da empresa), inclusive do valor padrão da empresa;
+  código inexistente aparece em laranja.
+- Esses campos aceitam busca pela descrição ("consultoria", "Belo Horizonte"...) e gravam só o código.
+- Tabelas do Anexo B (lista de serviços nacional e NBS 2.0) em `recursos/`; novo `tabelas.py`.
