@@ -55,6 +55,16 @@ def test_contexto_ssl_nao_deixa_arquivo(certificado):
     assert not [n for n in depois - antes if n.startswith("nfse_")]
 
 
+@pytest.mark.parametrize("serie,ok", [("1", True), ("49999", True), ("70000", False), ("0", False)])
+def test_faixa_de_serie_do_aplicativo_proprio(serie, ok):
+    import datetime as dt
+    from nfse_nacional.dps import DPS, Prestador, Servico, Valores
+    d = DPS(c_loc_emi="4205407", serie=serie, n_dps=1, d_compet=dt.date(2026, 9, 1),
+            prestador=Prestador(documento=CNPJ), servico=Servico("010601", "x"),
+            valores=Valores(v_serv=Decimal("1")))
+    assert (not any("E0010" in e for e in regras.validar_negocio(d))) == ok
+
+
 @pytest.mark.parametrize("op,reg_ap,reg_esp,trib,ret,conv,esperado", [
     ("2", "", "0", "1", "1", True, regras.PROIBIDA),        # MEI
     ("1", "", "0", "2", "1", False, regras.PROIBIDA),       # imunidade

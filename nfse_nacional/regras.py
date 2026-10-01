@@ -45,6 +45,11 @@ def validar_negocio(dps: DPS, convenio_ativo: bool | None = None) -> list[str]:
     p, v = dps.prestador, dps.valores
     hoje = dt.date.today()
 
+    # Faixas de série (Anexo I): 1-49999 aplicativo próprio, 50000-69999 emissor móvel,
+    # 70000-79999 emissor web (portal), 80000-89999 transcrição manual.
+    if not 1 <= int(so_digitos(str(dps.serie)) or 0) <= 49999:
+        erros.append("E0010: aplicativo próprio usa série de 1 a 49999 "
+                     "(70000-79999 é a série do Emissor Web do portal).")
     if dps.d_compet and dps.d_compet > hoje:
         erros.append("E0015: a competência não pode ser posterior à data de emissão.")
     if v.v_serv is None or Decimal(v.v_serv) <= 0:

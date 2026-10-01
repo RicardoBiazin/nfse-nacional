@@ -49,7 +49,7 @@ class DialogoEmpresa(QDialog):
         self.c_mun = QLineEdit(self.e.c_mun); self.c_mun.setPlaceholderText("IBGE, 7 dígitos (ex.: 4115200 Maringá)")
         self.fone = QLineEdit(self.e.fone)
         self.email = QLineEdit(self.e.email)
-        self.serie = QLineEdit(self.e.serie)
+        self.serie = QLineEdit(self.e.serie); self.serie.setPlaceholderText("1 a 49999 (70000+ é a série do portal)")
         self.proximo = QSpinBox(); self.proximo.setRange(1, 999_999_999)
         self.ambiente = combo(AMBIENTES, self.e.ambiente)
         if self.e.id:

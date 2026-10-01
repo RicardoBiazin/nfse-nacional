@@ -15,3 +15,9 @@ Primeira versão.
 - 43 testes automáticos (API simulada, certificado autoassinado).
 
 Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Brasil.
+
+## 0.1.1 — 01/10/2026
+
+- Regra E0010: aplicativo próprio só pode usar série 1–49999. A série 70000 que aparece nas
+  notas do portal é a do Emissor Web; o app usa a própria série (padrão 1) e numeração própria.
+- Dica da faixa de série no cadastro da empresa.
