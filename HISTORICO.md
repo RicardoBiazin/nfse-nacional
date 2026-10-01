@@ -53,3 +53,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Notas: botão **Duplicar nota** — copia uma nota emitida para a aba Emitir com competência de hoje.
 - Tomadores das notas emitidas (inclusive pelo portal) entram no cadastro automaticamente,
   na sincronização e ao abrir a empresa.
+
+## 0.4.0 — 01/10/2026
+
+- **Vários certificados por empresa** (nova tabela `certificados`, aba "Certificados" no cadastro):
+  adicionar, tornar principal, remover. Aceita o mesmo CNPJ ou o mesmo CNPJ raiz (filial).
+  O principal é usado na emissão; se vencer, o app usa sozinho o válido com maior validade.
+- Senha no keyring passa a ser por certificado (`CNPJ:serial`); o certificado único das versões
+  anteriores é migrado automaticamente na primeira abertura.
+- CLI: `empresa-importar` pode ser repetido (`--principal`, `--cnpj` para filial) e novo `certificados`.

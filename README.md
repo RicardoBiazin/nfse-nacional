@@ -26,7 +26,7 @@ Executável: `.\.venv\Scripts\pyinstaller --noconfirm nfse_nacional.spec` gera
 
 ## Uso
 
-1. **Nova empresa → Importar certificado A1 (.pfx)**. O CNPJ vem do certificado (OID ICP-Brasil
+1. **Nova empresa → aba Certificados → Adicionar certificado (.pfx)**. Pode haver vários (renovação, filial com o mesmo CNPJ raiz); o principal é usado e, se vencer, o app passa para o válido. O CNPJ vem do certificado (OID ICP-Brasil
    2.16.76.1.3.3). O .pfx é copiado para `%LOCALAPPDATA%\NFSE_Nacional\certificados` com ACL só do
    usuário e a senha vai para o Cofre de Credenciais do Windows (keyring), nunca para o banco.
 2. Preencha município (IBGE), regime (Simples/MEI/não optante), código de tributação nacional

@@ -35,7 +35,8 @@ def test_fluxo_cli_importar_configurar_simular(tmp_path, pfx_bytes, capsys):
     pfx.write_bytes(pfx_bytes)
     db = str(tmp_path / "cli.db")
     assert cli.main(["--banco", db, "empresa-importar", "--pfx", str(pfx), "--senha", SENHA]) == 0
-    assert keyring.get_password("NFSE_Nacional", CNPJ) == SENHA
+    cofre_ = keyring.get_keyring().d
+    assert [v for (srv, u), v in cofre_.items() if u.startswith(CNPJ + ":")] == [SENHA]
     assert cli.main(["--banco", db, "empresa-config", CNPJ, "c_mun=4115200", "op_simp_nac=3",
                      "reg_ap_trib_sn=1", "c_trib_nac=010701", "p_tot_sn=6"]) == 0
 

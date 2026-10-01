@@ -113,16 +113,11 @@ class Janela(QMainWindow):
             if not silencioso:
                 QMessageBox.information(self, "Empresa", "Cadastre uma empresa primeiro.")
             return None
-        if silencioso and not e.cert_arquivo:
-            return None
         try:
-            cert = cofre.abrir_certificado(e.cert_arquivo, e.cnpj)
+            cert = cofre.certificado_ativo(self.banco, e)
         except Exception as erro:      # noqa: BLE001
             if not silencioso:
                 mostrar_erro(self, erro, "Certificado")
-            return None
-        if cert.vencido and not silencioso:
-            QMessageBox.warning(self, "Certificado", "O certificado está vencido. Importe um novo.")
             return None
         self._emissor = Emissor(self.banco, e, cert)
         return self._emissor

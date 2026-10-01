@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS empresas (
     ibs_cst TEXT NOT NULL DEFAULT '',
     ibs_c_class_trib TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS certificados (
+    id INTEGER PRIMARY KEY,
+    empresa_id INTEGER NOT NULL,
+    arquivo TEXT NOT NULL,
+    chave_cofre TEXT NOT NULL,          -- usuário no keyring onde está a senha
+    documento TEXT NOT NULL DEFAULT '',
+    titular TEXT NOT NULL DEFAULT '',
+    serial TEXT NOT NULL DEFAULT '',
+    validade TEXT NOT NULL DEFAULT '',  -- ISO, UTC
+    principal INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (empresa_id, serial)
+);
 CREATE TABLE IF NOT EXISTS tomadores (
     id INTEGER PRIMARY KEY,
     documento TEXT NOT NULL UNIQUE,
@@ -226,6 +238,53 @@ class Banco:
 
     def excluir_empresa(self, id_: int):
         self.con.execute("DELETE FROM empresas WHERE id=?", (id_,))
+
+    # ------------------------------------------------------------ certificados
+    def certificados(self, empresa_id: int) -> list[sqlite3.Row]:
+        return self.con.execute(
+            "SELECT * FROM certificados WHERE empresa_id=? ORDER BY principal DESC, validade DESC",
+            (empresa_id,)).fetchall()
+
+    def adicionar_certificado(self, empresa_id: int, arquivo: str, chave_cofre: str,
+                              documento: str, titular: str, serial: str, validade: str) -> int:
+        with self._transacao():
+            self.con.execute(
+                "INSERT INTO certificados (empresa_id, arquivo, chave_cofre, documento, titular,"
+                " serial, validade) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(empresa_id, serial)"
+                " DO UPDATE SET arquivo=excluded.arquivo, chave_cofre=excluded.chave_cofre,"
+                " titular=excluded.titular, validade=excluded.validade",
+                (empresa_id, arquivo, chave_cofre, documento, titular, serial, validade))
+            id_ = self.con.execute("SELECT id FROM certificados WHERE empresa_id=? AND serial=?",
+                                   (empresa_id, serial)).fetchone()[0]
+            if not self.con.execute("SELECT 1 FROM certificados WHERE empresa_id=? AND principal=1",
+                                    (empresa_id,)).fetchone():
+                self._marcar_principal(empresa_id, id_)
+        return id_
+
+    def definir_certificado_principal(self, empresa_id: int, cert_id: int):
+        with self._transacao():
+            self._marcar_principal(empresa_id, cert_id)
+
+    def _marcar_principal(self, empresa_id: int, cert_id: int):
+        self.con.execute("UPDATE certificados SET principal=(id=?) WHERE empresa_id=?",
+                         (cert_id, empresa_id))
+        arq = self.con.execute("SELECT arquivo FROM certificados WHERE id=?", (cert_id,)).fetchone()
+        # empresas.cert_arquivo continua apontando para o principal (compatibilidade).
+        self.con.execute("UPDATE empresas SET cert_arquivo=? WHERE id=?",
+                         (arq[0] if arq else "", empresa_id))
+
+    def remover_certificado(self, empresa_id: int, cert_id: int):
+        with self._transacao():
+            era = self.con.execute("SELECT principal FROM certificados WHERE id=?", (cert_id,)).fetchone()
+            self.con.execute("DELETE FROM certificados WHERE id=? AND empresa_id=?", (cert_id, empresa_id))
+            if era and era[0]:
+                prox = self.con.execute(
+                    "SELECT id FROM certificados WHERE empresa_id=? ORDER BY validade DESC LIMIT 1",
+                    (empresa_id,)).fetchone()
+                if prox:
+                    self._marcar_principal(empresa_id, prox[0])
+                else:
+                    self.con.execute("UPDATE empresas SET cert_arquivo='' WHERE id=?", (empresa_id,))
 
     # ------------------------------------------------------------ tomadores
     def salvar_tomador(self, t: Tomador) -> Tomador:

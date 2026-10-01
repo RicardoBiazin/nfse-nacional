@@ -1,10 +1,14 @@
 """Cadastro de empresa emissora + importação do certificado A1."""
 from __future__ import annotations
 
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog,
-                               QFormLayout, QGroupBox, QHBoxLayout, QInputDialog,
-                               QLabel, QLineEdit, QMessageBox, QPushButton,
-                               QSpinBox, QTabWidget, QVBoxLayout, QWidget)
+import datetime as dt
+
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QDialogButtonBox,
+                               QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
+                               QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox,
+                               QPushButton, QSpinBox, QTableWidget, QTableWidgetItem,
+                               QTabWidget, QVBoxLayout, QWidget)
 
 from .. import cofre
 from ..banco import Banco, Empresa
@@ -54,11 +58,11 @@ class DialogoEmpresa(QDialog):
         self.ambiente = combo(AMBIENTES, self.e.ambiente)
         if self.e.id:
             self.proximo.setValue(banco.proximo_numero(self.e.id, self.e.ambiente, self.e.serie))
-        self.rot_cert = QLabel(self._descr_cert())
-        bt_cert = QPushButton("Importar certificado A1 (.pfx)…")
-        bt_cert.clicked.connect(self._importar_cert)
+        self.rot_cert = QLabel()
+        bt_cert = QPushButton("Certificados…")
+        bt_cert.clicked.connect(lambda: abas.setCurrentIndex(abas.count() - 1))
         linha_cert = QHBoxLayout(); linha_cert.addWidget(self.rot_cert, 1); linha_cert.addWidget(bt_cert)
-        f.addRow("Certificado", linha_cert)
+        f.addRow("Certificado em uso", linha_cert)
         f.addRow("CNPJ", self.cnpj)
         f.addRow("Razão social", self.razao)
         f.addRow("Inscrição municipal", self.im)
@@ -118,21 +122,76 @@ class DialogoEmpresa(QDialog):
         f.addRow(g)
         abas.addTab(w, "Serviço padrão")
 
+        # ---- certificados (vários por empresa)
+        w = QWidget(); v = QVBoxLayout(w)
+        aviso = QLabel("Pode cadastrar mais de um certificado A1: o renovado antes do antigo "
+                       "vencer, ou o de outra filial com o mesmo CNPJ raiz. O <b>principal</b> é "
+                       "usado na emissão; se ele vencer, o app usa o válido com maior validade.")
+        aviso.setWordWrap(True)
+        v.addWidget(aviso)
+        self.tab_cert = QTableWidget(0, 5)
+        self.tab_cert.setHorizontalHeaderLabels(["Principal", "Titular", "CNPJ/CPF", "Válido até", "Situação"])
+        self.tab_cert.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tab_cert.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.tab_cert.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tab_cert.verticalHeader().setVisible(False)
+        self.tab_cert.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        v.addWidget(self.tab_cert, 1)
+        linha = QHBoxLayout()
+        for rot, fn in (("Adicionar certificado (.pfx)…", self._importar_cert),
+                        ("Tornar principal", self._tornar_principal),
+                        ("Remover", self._remover_cert)):
+            b = QPushButton(rot); b.clicked.connect(fn); linha.addWidget(b)
+        linha.addStretch(1)
+        v.addLayout(linha)
+        abas.addTab(w, "Certificados")
+        self._linhas_cert = []
+        if self.e.id:
+            cofre.migrar_certificado_antigo(banco, self.e)
+        self._recarregar_certs()
+
         botoes = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         botoes.accepted.connect(self._salvar)
         botoes.rejected.connect(self.reject)
         lay = QVBoxLayout(self); lay.addWidget(abas); lay.addWidget(botoes)
 
-    def _descr_cert(self) -> str:
-        if not self.e.cert_arquivo:
-            return "nenhum certificado importado"
-        try:
-            c = cofre.abrir_certificado(self.e.cert_arquivo, self.e.cnpj)
-            aviso = " — VENCIDO" if c.vencido else (
-                f" — vence em {c.dias_para_vencer()} dias" if c.dias_para_vencer() < 30 else "")
-            return f"{c.titular} (até {c.validade:%d/%m/%Y}){aviso}"
-        except Exception as erro:      # noqa: BLE001
-            return f"certificado ilegível: {erro}"
+    # ------------------------------------------------------------ certificados
+    def _recarregar_certs(self):
+        self._linhas_cert = self.banco.certificados(self.e.id) if self.e.id else []
+        self.tab_cert.setRowCount(len(self._linhas_cert))
+        agora = dt.datetime.now(dt.timezone.utc)
+        em_uso = ""
+        for i, r in enumerate(self._linhas_cert):
+            try:
+                val = dt.datetime.fromisoformat(r["validade"])
+                dias = (val - agora).days
+                situacao = "VENCIDO" if dias < 0 else (f"vence em {dias} dias" if dias < 30 else "válido")
+                cor = "#b3261e" if dias < 0 else ("#b26a00" if dias < 30 else "#1b7f3b")
+                val_txt = val.astimezone().strftime("%d/%m/%Y")
+            except ValueError:
+                situacao, cor, val_txt = "?", "#000", r["validade"]
+            for j, txt in enumerate(("★" if r["principal"] else "", r["titular"], r["documento"],
+                                     val_txt, situacao)):
+                it = QTableWidgetItem(txt)
+                if j == 4:
+                    it.setForeground(QColor(cor))
+                self.tab_cert.setItem(i, j, it)
+            if r["principal"]:
+                em_uso = f"{r['titular']} (até {val_txt}) — {situacao}"
+        self.tab_cert.resizeColumnsToContents()
+        self.tab_cert.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.rot_cert.setText(em_uso or "nenhum certificado importado")
+        if self.e.id:
+            atual = self.banco.empresa(self.e.id)
+            if atual:
+                self.e.cert_arquivo = atual.cert_arquivo
+
+    def _cert_selecionado(self):
+        linhas = {i.row() for i in self.tab_cert.selectedIndexes()}
+        if len(linhas) != 1:
+            QMessageBox.information(self, "Certificados", "Selecione um certificado na lista.")
+            return None
+        return self._linhas_cert[linhas.pop()]
 
     def _importar_cert(self):
         arq, _ = QFileDialog.getOpenFileName(self, "Certificado A1", "", "Certificado (*.pfx *.p12)")
@@ -141,34 +200,62 @@ class DialogoEmpresa(QDialog):
         senha, ok = QInputDialog.getText(self, "Senha do certificado", "Senha:", QLineEdit.EchoMode.Password)
         if not ok:
             return
+        self.adicionar_certificado(arq, senha)
+
+    def adicionar_certificado(self, arq: str, senha: str) -> bool:
         try:
-            cert = Certificado.de_arquivo(arq, senha)
-            doc = cert.documento[1]
-            if self.e.id and doc != self.e.cnpj:
-                raise ValueError(f"O certificado é do documento {doc}, não de {self.e.cnpj}.")
-            cert, destino = cofre.importar_certificado(arq, senha)
+            previa = Certificado.de_arquivo(arq, senha)
+            if not self.e.id:
+                # Empresa nova: o CNPJ vem do primeiro certificado; grava para ter id.
+                self.e = self._coletar()
+                self.e.cnpj = self.e.cnpj or previa.documento[1]
+                self.e.razao = self.e.razao or previa.titular.split(":")[0]
+                self.e = self.banco.salvar_empresa(self.e)
+                self.cnpj.setText(self.e.cnpj)
+                self.cnpj.setReadOnly(True)
+                self.razao.setText(self.e.razao)
+            principal = False
+            if self._linhas_cert:
+                principal = QMessageBox.question(
+                    self, "Certificado", "Usar este certificado como principal?"
+                ) == QMessageBox.StandardButton.Yes
+            cofre.adicionar_a_empresa(self.banco, self.e, arq, senha, principal=principal)
         except SenhaCertificadoIncorreta:
             QMessageBox.warning(self, "Certificado", "Senha incorreta.")
-            return
+            return False
         except Exception as erro:      # noqa: BLE001
             mostrar_erro(self, erro, "Certificado")
+            return False
+        self._recarregar_certs()
+        return True
+
+    def _tornar_principal(self):
+        r = self._cert_selecionado()
+        if r:
+            self.banco.definir_certificado_principal(self.e.id, r["id"])
+            self._recarregar_certs()
+
+    def _remover_cert(self):
+        r = self._cert_selecionado()
+        if not r:
             return
-        self.e.cert_arquivo = str(destino)
-        self.e.cnpj = doc
-        self.cnpj.setText(doc)
-        if not self.razao.text():
-            self.razao.setText(cert.titular.split(":")[0])
-        self.rot_cert.setText(self._descr_cert())
+        if QMessageBox.question(self, "Remover certificado",
+                                f"Remover o certificado de {r['titular']} (até {r['validade'][:10]})? "
+                                "A cópia do .pfx e a senha guardadas pelo app serão apagadas."
+                                ) != QMessageBox.StandardButton.Yes:
+            return
+        cofre.remover_da_empresa(self.banco, self.e, r["id"])
+        self._recarregar_certs()
 
     def _consultar_convenio(self):
-        if not (self.e.cert_arquivo and so_digitos(self.c_mun.text())):
+        if not (self._linhas_cert and so_digitos(self.c_mun.text())):
             QMessageBox.information(self, "Convênio", "Importe o certificado e informe o município antes.")
             return
         from ..servico import Emissor
         e = self._coletar()
 
         def consultar():
-            cert = cofre.abrir_certificado(e.cert_arquivo, e.cnpj)
+            cert = cofre.certificado_ativo(self.banco, e)
             return Emissor(self.banco, e, cert).parametros_convenio()
 
         def pronto(dados):

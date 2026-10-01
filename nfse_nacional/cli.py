@@ -31,9 +31,10 @@ def abrir_emissor(banco: Banco, cnpj: str) -> Emissor:
     e = banco.empresa_por_cnpj(cnpj)
     if not e:
         raise SystemExit(f"Empresa {cnpj} não cadastrada. Use: empresa-importar")
-    if not e.cert_arquivo:
-        raise SystemExit("Empresa sem certificado. Use: empresa-importar")
-    return Emissor(banco, e, cofre.abrir_certificado(e.cert_arquivo, e.cnpj))
+    try:
+        return Emissor(banco, e, cofre.certificado_ativo(banco, e))
+    except ValueError as erro:
+        raise SystemExit(str(erro)) from None
 
 
 def dados_de_json(caminho: str) -> DadosNota:
@@ -58,10 +59,16 @@ def main(argv=None) -> int:
     ap.add_argument("--banco", help="arquivo SQLite (padrão: %%LOCALAPPDATA%%\\NFSE_Nacional)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("empresa-importar", help="importa o certificado A1 e cria/atualiza a empresa")
+    p = sub.add_parser("empresa-importar",
+                       help="importa um certificado A1 e cria/atualiza a empresa (pode repetir)")
     p.add_argument("--pfx", required=True)
     p.add_argument("--senha", required=True)
     p.add_argument("--razao", default="")
+    p.add_argument("--cnpj", help="empresa a que o certificado pertence (filial com mesmo CNPJ raiz)")
+    p.add_argument("--principal", action="store_true", help="torna este o certificado principal")
+
+    p = sub.add_parser("certificados", help="lista os certificados da empresa")
+    p.add_argument("cnpj")
 
     p = sub.add_parser("empresa-config", help="altera campos da empresa (campo=valor)")
     p.add_argument("cnpj")
@@ -118,13 +125,26 @@ def main(argv=None) -> int:
 
 def _executar(a, banco: Banco) -> int:
     if a.cmd == "empresa-importar":
-        cert, destino = cofre.importar_certificado(a.pfx, a.senha)
-        tipo, doc = cert.documento
-        e = banco.empresa_por_cnpj(doc) or Empresa(cnpj=doc)
-        e.cert_arquivo = str(destino)
-        e.razao = a.razao or e.razao or cert.titular.split(":")[0]
+        from .certificado import Certificado
+        previa = Certificado.de_arquivo(a.pfx, a.senha)
+        tipo, doc = previa.documento
+        alvo = a.cnpj or doc
+        e = banco.empresa_por_cnpj(alvo) or Empresa(cnpj=alvo)
+        e.razao = a.razao or e.razao or previa.titular.split(":")[0]
         e = banco.salvar_empresa(e)
-        print(f"{tipo} {doc} - {e.razao}; certificado válido até {cert.validade:%d/%m/%Y}")
+        cofre.migrar_certificado_antigo(banco, e)
+        cert, _ = cofre.adicionar_a_empresa(banco, e, a.pfx, a.senha, principal=a.principal)
+        print(f"{tipo} {doc} - {e.razao}; certificado válido até {cert.validade:%d/%m/%Y} "
+              f"({len(banco.certificados(e.id))} certificado(s) na empresa)")
+        return 0
+    if a.cmd == "certificados":
+        e = banco.empresa_por_cnpj(a.cnpj)
+        if not e:
+            raise SystemExit("Empresa não cadastrada.")
+        cofre.migrar_certificado_antigo(banco, e)
+        for r in banco.certificados(e.id):
+            print(f"#{r['id']:<3} {'*' if r['principal'] else ' '} {r['documento']}  "
+                  f"até {r['validade'][:10]}  {r['titular']}")
         return 0
     if a.cmd == "empresa-config":
         e = banco.empresa_por_cnpj(a.cnpj)

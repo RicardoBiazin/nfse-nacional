@@ -33,11 +33,11 @@ def janela(app, tmp_path, pfx_bytes, monkeypatch):
     # mostrar_erro() usa QMessageBox(...).exec(): registra em vez de abrir modal.
     monkeypatch.setattr(QMessageBox, "exec", lambda self: avisos.append(("erro", self.text())) or 0)
     pfx = tmp_path / "c.pfx"; pfx.write_bytes(pfx_bytes)
-    _, destino = cofre.importar_certificado(pfx, SENHA)
     banco = Banco(tmp_path / "ui.db")
-    banco.salvar_empresa(Empresa(cnpj=CNPJ, razao="EMPRESA TESTE", c_mun="4115200",
-                                 op_simp_nac="3", reg_ap_trib_sn="1", c_trib_nac="010701",
-                                 descricao_padrao="Serviço padrão", cert_arquivo=str(destino)))
+    e = banco.salvar_empresa(Empresa(cnpj=CNPJ, razao="EMPRESA TESTE", c_mun="4115200",
+                                     op_simp_nac="3", reg_ap_trib_sn="1", c_trib_nac="010701",
+                                     descricao_padrao="Serviço padrão"))
+    cofre.adicionar_a_empresa(banco, e, pfx, SENHA)
     from nfse_nacional.interface.janela import Janela
     j = Janela(banco)
     j.avisos = avisos
@@ -153,6 +153,23 @@ def test_duplicar_nota_preenche_emissao(janela):
     a = janela.aba_emitir
     assert janela.abas.currentIndex() == 0
     assert a.t_doc.text() == "11444777000161" and a.c_nbs.text() == "115011000"
+
+
+def test_dialogo_empresa_varios_certificados(janela, tmp_path):
+    from nfse_nacional.interface.dialogo_empresa import DialogoEmpresa
+    from .conftest import _pfx
+    d = DialogoEmpresa(janela.banco, janela._empresa_atual(), janela)
+    assert d.tab_cert.rowCount() == 1 and d.tab_cert.item(0, 0).text() == "★"
+    novo = tmp_path / "renovado.pfx"
+    novo.write_bytes(_pfx(CNPJ, SENHA, 800))
+    assert d.adicionar_certificado(str(novo), SENHA)       # question() responde Sim: vira principal
+    assert d.tab_cert.rowCount() == 2
+    principal = [d.tab_cert.item(i, 3).text() for i in range(2) if d.tab_cert.item(i, 0).text()]
+    assert len(principal) == 1 and "válido" in d.rot_cert.text()
+    outro = tmp_path / "outro.pfx"
+    outro.write_bytes(_pfx("99888777000166", SENHA))
+    assert not d.adicionar_certificado(str(outro), SENHA)  # outra empresa: recusado
+    assert d.tab_cert.rowCount() == 2
 
 
 def test_dados_invalidos_nao_enviam(janela):
