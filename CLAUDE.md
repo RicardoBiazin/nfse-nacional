@@ -9,6 +9,9 @@ Nacional e no ADN. Python 3.13, venv em `.venv`.
 - Interface: `.\.venv\Scripts\python main.py`
 - Executável: `.\.venv\Scripts\pyinstaller --noconfirm nfse_nacional.spec` e abrir
   `dist\NFSE_Nacional\NFSE_Nacional.exe` para conferir
+- Arquivo único para distribuir (Google Drive/rede):
+  `.\.venv\Scripts\pyinstaller --noconfirm --distpath dist_unico nfse_nacional_unico.spec`.
+  A versão em pasta falha rodando do Google Drive ("Failed to load Python DLL"); gerar as duas a cada versão.
 
 ## Mapa
 

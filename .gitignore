@@ -25,3 +25,4 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+dist_unico/

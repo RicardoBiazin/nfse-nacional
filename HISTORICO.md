@@ -70,3 +70,10 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   código inexistente aparece em laranja.
 - Esses campos aceitam busca pela descrição ("consultoria", "Belo Horizonte"...) e gravam só o código.
 - Tabelas do Anexo B (lista de serviços nacional e NBS 2.0) em `recursos/`; novo `tabelas.py`.
+
+## 0.5.1 — 01/10/2026
+
+- Executável em **arquivo único** (`nfse_nacional_unico.spec` → `dist_unico\NFSE_Nacional.exe`)
+  para rodar de Google Drive/pasta de rede. A versão em pasta copiada para o Drive dava
+  "Failed to load Python DLL ... python313.dll" (DLL carregada do drive virtual). Testado
+  abrindo direto de `G:\Drives compartilhados\...`.

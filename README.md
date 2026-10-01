@@ -21,8 +21,18 @@ python -m venv .venv
 .\.venv\Scripts\python -m pytest -q       # testes (sem rede)
 ```
 
-Executável: `.\.venv\Scripts\pyinstaller --noconfirm nfse_nacional.spec` gera
-`dist\NFSE_Nacional\NFSE_Nacional.exe`.
+Executáveis:
+
+- **Arquivo único (para distribuir / rodar de Google Drive ou rede):**
+  `.\.venv\Scripts\pyinstaller --noconfirm --distpath dist_unico nfse_nacional_unico.spec`
+  gera `dist_unico\NFSE_Nacional.exe` (~64 MB). Ele extrai o Python para a pasta temporária
+  local antes de abrir; por isso funciona de `G:\Drives compartilhados\...`.
+- **Pasta (desenvolvimento, abre mais rápido):** `.\.venv\Scripts\pyinstaller --noconfirm nfse_nacional.spec`
+  gera `dist\NFSE_Nacional\`. **Não copie essa pasta para o Google Drive**: o Windows não consegue
+  carregar as DLLs do drive virtual e dá "Failed to load Python DLL ... python313.dll".
+
+Cada PC tem o próprio banco (`%LOCALAPPDATA%\NFSE_Nacional`) e o próprio cofre de senhas:
+em outro computador é preciso importar o certificado de novo e sincronizar o ADN.
 
 ## Uso
 
