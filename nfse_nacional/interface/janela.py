@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
 from .. import VERSAO, cofre
 from ..config import pasta_base
 from ..banco import Banco
-from ..servico import Emissor
+from ..servico import Emissor, tomadores_de_notas
 from .aba_emitir import AbaEmitir
 from .aba_notas import AbaNotas
 from .comum import mostrar_erro
@@ -41,6 +41,7 @@ class Janela(QMainWindow):
         self.aba_notas = AbaNotas(self.banco, self.emissor, self._empresa_atual)
         self.aba_emitir.emitida.connect(
             lambda: self.aba_notas.mostrar_ambiente(self._empresa_atual().ambiente))
+        self.aba_notas.duplicar.connect(self._duplicar)
         self.abas.addTab(self.aba_emitir, "Emitir NFS-e")
         self.abas.addTab(self.aba_notas, "Notas")
         self.abas.currentChanged.connect(lambda i: i == 1 and self.aba_notas.recarregar())
@@ -57,6 +58,10 @@ class Janela(QMainWindow):
         self.menuBar().addAction(sobre)
 
         self._carregar_empresas()
+
+    def _duplicar(self, dados):
+        self.aba_emitir.carregar(dados)
+        self.abas.setCurrentIndex(0)
 
     def _sobre(self):
         caixa = QMessageBox(self)
@@ -94,6 +99,9 @@ class Janela(QMainWindow):
         else:
             self.selo.setText("  PRODUÇÃO RESTRITA (testes)  ")
             self.selo.setStyleSheet("background:#f2b705; color:black; font-weight:bold; border-radius:4px")
+        if e:
+            tomadores_de_notas(self.banco, e.id)      # tomadores das notas já sincronizadas
+            self.aba_emitir._atualizar_completer()
         self.aba_emitir.preencher_padroes(self.emissor(silencioso=True))
         self.aba_notas.recarregar()
 

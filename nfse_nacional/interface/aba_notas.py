@@ -5,7 +5,7 @@ import dataclasses
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDateEdit, QDialog,
                                QDialogButtonBox, QFileDialog, QFormLayout,
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDateEdit, QDialog,
 from .. import exportar
 from ..banco import Banco
 from ..eventos import MOTIVOS_CANCELAMENTO
-from ..servico import Emissor
+from ..servico import Emissor, dados_de_xml
 from .comum import em_segundo_plano, moeda, mostrar_erro
 
 COLUNAS = [("Situação", "situacao"), ("Origem", "origem"), ("Nº NFS-e", "numero"),
@@ -52,6 +52,7 @@ class DialogoCancelar(QDialog):
 
 
 class AbaNotas(QWidget):
+    duplicar = Signal(object)          # DadosNota para a aba Emitir
     def __init__(self, banco: Banco, obter_emissor, obter_empresa, pai=None):
         super().__init__(pai)
         self.banco = banco
@@ -102,7 +103,7 @@ class AbaNotas(QWidget):
 
         self.status = QLabel("")
         acoes = QHBoxLayout()
-        botoes = [("Sincronizar ADN", self._sincronizar), ("Reconsultar", self._reconsultar),
+        botoes = [("Sincronizar ADN", self._sincronizar), ("Duplicar nota", self._duplicar), ("Reconsultar", self._reconsultar),
                   ("DANFSe (PDF)", self._danfse), ("Cancelar NFS-e", self._cancelar),
                   ("Ver XML", self._ver_xml), ("Importar XML", self._importar_xml),
                   ("Exportar XLSX", self._exportar_xlsx), ("Exportar XMLs", self._exportar_xmls)]
@@ -206,6 +207,23 @@ class AbaNotas(QWidget):
             self.recarregar()
             mostrar_erro(self, e, "Sincronização")
         em_segundo_plano(lambda cb: em.sincronizar(cb), fim, falha, progresso=self.status.setText)
+
+    def _duplicar(self):
+        n = self._uma()
+        if not n:
+            return
+        if n["origem"] != "emitida":
+            QMessageBox.information(self, "Duplicar", "Só dá para duplicar nota emitida por você.")
+            return
+        nota = self.banco.nota(n["id"])
+        xml = nota["nfse_xml"] or nota["dps_xml"]
+        if not xml:
+            QMessageBox.information(self, "Duplicar", "Esta nota não tem XML salvo.")
+            return
+        try:
+            self.duplicar.emit(dados_de_xml(xml))
+        except Exception as e:      # noqa: BLE001
+            mostrar_erro(self, e, "Duplicar")
 
     def _reconsultar(self):
         n = self._uma()

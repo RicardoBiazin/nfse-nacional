@@ -105,6 +105,56 @@ def test_sincronizar_avisa_resultado(janela):
     assert "adn.nfse.gov.br" in s.chamadas[0][1]          # consultou PRODUÇÃO
 
 
+def _nota_do_portal(janela):
+    """Grava uma NFS-e emitida 'pelo portal' (como viria da sincronização)."""
+    import datetime as dt
+    from decimal import Decimal
+    from nfse_nacional.dps import DPS, Endereco, Pessoa, Prestador, Servico, Valores, gerar_xml, para_bytes
+    from .test_servico import nfse_de
+    e = janela._empresa_atual()
+    d = DPS(c_loc_emi="4205407", serie="70000", n_dps=17, d_compet=dt.date(2026, 9, 1),
+            prestador=Prestador(documento=CNPJ, op_simp_nac="3", reg_ap_trib_sn="1"),
+            tomador=Pessoa(documento="11444777000161", nome="CLIENTE EXEMPLO SERVICOS",
+                           endereco=Endereco(c_mun="3106200", cep="30110000", logradouro="RUA DOS EXEMPLOS",
+                                             numero="6627", bairro="CENTRO")),
+            servico=Servico("010601", "Gestão de projeto ERP", c_nbs="115011000"),
+            valores=Valores(v_serv=Decimal("1500")))
+    xml = nfse_de(para_bytes(gerar_xml(d)), numero="17")
+    return janela.banco.inserir_nota(
+        empresa_id=e.id, ambiente="producao", origem="emitida", situacao="autorizada",
+        numero="17", d_compet=dt.date.today().isoformat(), tomador_doc="11444777000161",
+        tomador_nome="CLIENTE EXEMPLO SERVICOS", v_serv="1500.00", nfse_xml=xml,
+        chave="4205407" + "7" * 43)
+
+
+def test_busca_tomador_e_repetir_ultima_nota(janela):
+    from nfse_nacional.servico import tomadores_de_notas
+    _nota_do_portal(janela)
+    assert tomadores_de_notas(janela.banco, janela._empresa_atual().id) == 1
+    a = janela.aba_emitir
+    a._atualizar_completer()
+    i = a.busca_tom.findData("11444777000161")
+    assert i >= 0 and "CLIENTE" in a.busca_tom.itemText(i)
+    a._escolher_tomador(i)
+    assert a.t_nome.text().startswith("CLIENTE") and a.t_cmun.text() == "3106200"
+    a._repetir_ultima()
+    assert a.descricao.toPlainText() == "Gestão de projeto ERP"
+    assert a.v_serv.text() == "1.500,00" and a.c_trib_nac.text() == "010601"
+    assert a._dados().v_serv == 1500
+
+
+def test_duplicar_nota_preenche_emissao(janela):
+    id_ = _nota_do_portal(janela)
+    n = janela.aba_notas
+    n.recarregar()
+    n.tabela.selectRow(0)
+    assert n._linhas[0]["id"] == id_
+    n._duplicar()
+    a = janela.aba_emitir
+    assert janela.abas.currentIndex() == 0
+    assert a.t_doc.text() == "11444777000161" and a.c_nbs.text() == "115011000"
+
+
 def test_dados_invalidos_nao_enviam(janela):
     a = janela.aba_emitir
     a.descricao.clear()

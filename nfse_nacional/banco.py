@@ -335,6 +335,13 @@ class Banco:
         sql.append("ORDER BY COALESCE(d_compet, '') DESC, id DESC")
         return self.con.execute(" ".join(sql), args).fetchall()
 
+    def ultima_nota_do_tomador(self, empresa_id: int, documento: str):
+        """Nota emitida mais recente (autorizada) para o tomador, com o XML."""
+        return self.con.execute(
+            "SELECT * FROM notas WHERE empresa_id=? AND origem='emitida' AND tomador_doc=? "
+            "AND situacao='autorizada' AND COALESCE(nfse_xml, dps_xml) IS NOT NULL "
+            "ORDER BY d_compet DESC, id DESC LIMIT 1", (empresa_id, documento)).fetchone()
+
     # ------------------------------------------------------------ eventos
     def inserir_evento(self, chave: str, tipo: str, descricao: str, dh: str,
                        xml: bytes, nsu: int | None = None):

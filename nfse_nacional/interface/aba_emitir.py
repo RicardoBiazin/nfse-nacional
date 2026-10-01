@@ -12,12 +12,20 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QCompleter, QDateEdit,
 
 from ..banco import Banco, Tomador
 from ..dps import so_digitos
-from ..servico import DadosNota, Emissor
-from .comum import em_segundo_plano, mostrar_erro, para_decimal
+from ..servico import DadosNota, Emissor, dados_de_xml
+from .comum import em_segundo_plano, moeda, mostrar_erro, para_decimal
 
 RETENCAO = [("1", "Não retido"), ("2", "Retido pelo tomador"), ("3", "Retido pelo intermediário")]
 TRIB_ISSQN = [("1", "Operação tributável"), ("2", "Imunidade"), ("3", "Exportação de serviço"),
               ("4", "Não incidência")]
+
+
+def _doc_fmt(d: str) -> str:
+    if len(d) == 14:
+        return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+    if len(d) == 11:
+        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    return d
 
 
 def _combo(opcoes):
@@ -37,7 +45,23 @@ class AbaEmitir(QWidget):
 
         # ---- tomador
         g_tom = QGroupBox("Tomador")
-        grid = QGridLayout(g_tom)
+        caixa_tom = QVBoxLayout(g_tom)
+        self.busca_tom = QComboBox()
+        self.busca_tom.setEditable(True)
+        self.busca_tom.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.busca_tom.lineEdit().setPlaceholderText("Buscar tomador já usado: digite parte do nome ou do CPF/CNPJ")
+        self.busca_tom.activated.connect(self._escolher_tomador)
+        self.bt_repetir = QPushButton("Repetir última nota deste tomador")
+        self.bt_repetir.setToolTip("Preenche serviço, valor e tributação com a última nota "
+                                   "autorizada emitida para o tomador selecionado")
+        self.bt_repetir.clicked.connect(self._repetir_ultima)
+        linha_busca = QHBoxLayout()
+        linha_busca.addWidget(QLabel("Buscar"))
+        linha_busca.addWidget(self.busca_tom, 1)
+        linha_busca.addWidget(self.bt_repetir)
+        caixa_tom.addLayout(linha_busca)
+        grid = QGridLayout()
+        caixa_tom.addLayout(grid)
         self.t_doc = QLineEdit(); self.t_doc.setPlaceholderText("CPF ou CNPJ (vazio = sem tomador)")
         self.t_doc.editingFinished.connect(self._carregar_tomador)
         self.t_nome = QLineEdit()
@@ -116,11 +140,67 @@ class AbaEmitir(QWidget):
 
     # ------------------------------------------------------------ tomador
     def _atualizar_completer(self):
-        docs = [t.documento for t in self.banco.tomadores()]
-        comp = QCompleter(docs, self)
+        """Recarrega a lista de tomadores (busca por qualquer parte do nome ou documento)."""
+        texto = self.busca_tom.currentText()
+        self.busca_tom.blockSignals(True)
+        self.busca_tom.clear()
+        for t in self.banco.tomadores():
+            self.busca_tom.addItem(f"{t.nome} — {_doc_fmt(t.documento)}", t.documento)
+        self.busca_tom.setCurrentIndex(-1)
+        self.busca_tom.setEditText(texto)
+        self.busca_tom.blockSignals(False)
+        comp = self.busca_tom.completer()
+        comp.setFilterMode(Qt.MatchFlag.MatchContains)
         comp.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        comp.activated.connect(lambda _t: self._carregar_tomador())
-        self.t_doc.setCompleter(comp)
+        comp.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+
+    def showEvent(self, evento):
+        self._atualizar_completer()          # pega tomadores vindos da sincronização
+        super().showEvent(evento)
+
+    def _escolher_tomador(self, indice: int):
+        doc = self.busca_tom.itemData(indice)
+        if doc:
+            self.t_doc.setText(doc)
+            self._carregar_tomador()
+
+    def _repetir_ultima(self):
+        doc = so_digitos(self.t_doc.text())
+        em = self.obter_emissor()
+        if not em:
+            return
+        if not doc:
+            QMessageBox.information(self, "Repetir nota", "Escolha um tomador primeiro.")
+            return
+        nota = self.banco.ultima_nota_do_tomador(em.empresa.id, doc)
+        if not nota:
+            QMessageBox.information(self, "Repetir nota",
+                                    "Não há nota autorizada emitida para este tomador. "
+                                    "Sincronize o ADN na aba Notas para trazer as do portal.")
+            return
+        self.carregar(dados_de_xml(nota["nfse_xml"] or nota["dps_xml"]))
+
+    def carregar(self, d: DadosNota):
+        """Preenche o formulário com os dados de uma nota existente (competência = hoje)."""
+        if d.tomador:
+            t = d.tomador
+            for w, v in ((self.t_doc, t.documento), (self.t_nome, t.nome), (self.t_im, t.im),
+                         (self.t_email, t.email), (self.t_fone, t.fone), (self.t_cmun, t.c_mun),
+                         (self.t_cep, t.cep), (self.t_lgr, t.logradouro), (self.t_nro, t.numero),
+                         (self.t_cpl, t.complemento), (self.t_bairro, t.bairro)):
+                w.setText(v or "")
+        self.descricao.setPlainText(d.descricao)
+        self.c_trib_nac.setText(d.c_trib_nac)
+        self.c_trib_mun.setText(d.c_trib_mun)
+        self.c_nbs.setText(d.c_nbs)
+        self.c_loc.setText(d.c_loc_prestacao)
+        self.info.setText(d.info_complementar)
+        self.v_serv.setText(moeda(d.v_serv))
+        self.v_desc.setText(moeda(d.v_desc_incond) if d.v_desc_incond else "")
+        self.p_aliq.setText(moeda(d.p_aliq) if d.p_aliq is not None else "")
+        self.trib.setCurrentIndex(max(self.trib.findData(d.trib_issqn), 0))
+        self.ret.setCurrentIndex(max(self.ret.findData(d.tp_ret_issqn), 0))
+        self.compet.setDate(QDate.currentDate())
 
     def _carregar_tomador(self):
         t = self.banco.tomador(so_digitos(self.t_doc.text()))
@@ -137,6 +217,8 @@ class AbaEmitir(QWidget):
             self.descricao.setPlainText(emissor.empresa.descricao_padrao)
 
     def limpar(self):
+        self.busca_tom.setCurrentIndex(-1)
+        self.busca_tom.setEditText("")
         for w in (self.t_doc, self.t_nome, self.t_im, self.t_email, self.t_fone, self.t_cmun,
                   self.t_cep, self.t_lgr, self.t_nro, self.t_cpl, self.t_bairro, self.c_trib_nac,
                   self.c_trib_mun, self.c_nbs, self.c_loc, self.info, self.v_serv, self.v_desc,

@@ -1,3 +1,3 @@
-"""NFSE_Nacional: emissão e consulta da NFS-e Padrão Nacional (Sefin Nacional + ADN)."""
+"""NFSE_Nacional: emissÃ£o e consulta da NFS-e PadrÃ£o Nacional (Sefin Nacional + ADN)."""
 
-VERSAO = "0.2.0"
+VERSAO = "0.3.0"

@@ -44,3 +44,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   (responde 503 em todos os hosts) — era o erro do botão DANFSe (PDF).
 - Tabela IBGE de municípios (Anexo A) e logo oficial da NFS-e em `recursos/`.
 - Ícone próprio do aplicativo (janela, barra de tarefas e .exe) e "Sobre" com o ícone.
+
+## 0.3.0 — 01/10/2026
+
+- Emitir: campo **Buscar tomador** (qualquer parte do nome ou do CPF/CNPJ) que preenche o
+  tomador inteiro, e botão **Repetir última nota deste tomador** (serviço, valor, códigos e
+  tributação da última nota autorizada).
+- Notas: botão **Duplicar nota** — copia uma nota emitida para a aba Emitir com competência de hoje.
+- Tomadores das notas emitidas (inclusive pelo portal) entram no cadastro automaticamente,
+  na sincronização e ao abrir a empresa.

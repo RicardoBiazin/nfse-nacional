@@ -65,6 +65,65 @@ class Resultado:
     mensagem: str = ""
 
 
+def _tomador_de_dps(inf, N) -> Tomador | None:
+    toma = inf.find("n:toma", N)
+    if toma is None:
+        return None
+    t = lambda c: (toma.findtext(c, namespaces=N) or "").strip()      # noqa: E731
+    doc = t("n:CNPJ") or t("n:CPF")
+    if not doc:
+        return None
+    return Tomador(documento=doc, nome=t("n:xNome"), im=t("n:IM"), email=t("n:email"),
+                   fone=t("n:fone"), c_mun=t("n:end/n:endNac/n:cMun"),
+                   cep=t("n:end/n:endNac/n:CEP"), logradouro=t("n:end/n:xLgr"),
+                   numero=t("n:end/n:nro"), complemento=t("n:end/n:xCpl"),
+                   bairro=t("n:end/n:xBairro"))
+
+
+def dados_de_xml(xml: bytes) -> DadosNota:
+    """Dados de uma nota existente (NFS-e ou DPS) para duplicar numa emissão nova."""
+    from lxml import etree
+
+    from .config import NS_NFSE
+    N = {"n": NS_NFSE}
+    raiz = etree.fromstring(xml, parser=etree.XMLParser(resolve_entities=False, no_network=True))
+    inf = raiz.find(".//n:infDPS", N)
+    if inf is None:
+        raise ValueError("XML sem DPS.")
+    t = lambda c: (inf.findtext(c, namespaces=N) or "").strip()      # noqa: E731
+    return DadosNota(
+        descricao=t("n:serv/n:cServ/n:xDescServ"),
+        v_serv=_dec(t("n:valores/n:vServPrest/n:vServ")) or Decimal(0),
+        tomador=_tomador_de_dps(inf, N),
+        c_trib_nac=t("n:serv/n:cServ/n:cTribNac"), c_trib_mun=t("n:serv/n:cServ/n:cTribMun"),
+        c_nbs=t("n:serv/n:cServ/n:cNBS"),
+        c_loc_prestacao=t("n:serv/n:locPrest/n:cLocPrestacao"),
+        p_aliq=_dec(t("n:valores/n:trib/n:tribMun/n:pAliq")),
+        tp_ret_issqn=t("n:valores/n:trib/n:tribMun/n:tpRetISSQN") or "1",
+        trib_issqn=t("n:valores/n:trib/n:tribMun/n:tribISSQN") or "1",
+        v_desc_incond=_dec(t("n:valores/n:vDescCondIncond/n:vDescIncond")),
+        info_complementar=t("n:serv/n:infoCompl/n:xInfComp"))
+
+
+def tomadores_de_notas(banco: Banco, empresa_id: int) -> int:
+    """Cadastra os tomadores das notas emitidas (inclusive as do portal) que ainda não existem."""
+    n = 0
+    for r in banco.con.execute(
+            "SELECT nfse_xml, dps_xml FROM notas WHERE empresa_id=? AND origem='emitida' "
+            "AND situacao IN ('autorizada','cancelada') ORDER BY d_compet", (empresa_id,)):
+        xml = r["nfse_xml"] or r["dps_xml"]
+        if not xml:
+            continue
+        try:
+            tom = dados_de_xml(xml).tomador
+        except Exception:      # noqa: BLE001 - XML estranho não impede o resto
+            continue
+        if tom and not banco.tomador(tom.documento):
+            banco.salvar_tomador(tom)
+            n += 1
+    return n
+
+
 def _dec(texto: str | None) -> Decimal | None:
     texto = (texto or "").strip().replace(",", ".")
     return Decimal(texto) if texto else None
@@ -271,6 +330,10 @@ class Emissor:
         if tipo == "NFSe":
             r = leitor.ler_nfse(xml)
             origem = "emitida" if so_digitos(r.emitente_doc) == e.cnpj else "recebida"
+            if origem == "emitida":
+                tom = dados_de_xml(xml).tomador
+                if tom and not self.banco.tomador(tom.documento):
+                    self.banco.salvar_tomador(tom)
             # Nota nossa que ficou 'indefinida' ainda não tem chave: casa pelo Id da DPS.
             existente = self.banco.nota_por_chave(r.chave) or (
                 self.banco.con.execute(
