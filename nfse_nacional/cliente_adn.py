@@ -72,6 +72,27 @@ class ClienteADN:
             status=str(campo(dados, "StatusProcessamento", padrao="")),
             alertas=mensagens(campo(dados, "Alertas", padrao=[])))
 
+    # ------------------------------------------------------------ parâmetros municipais
+    # Ficam no ADN (/parametrizacao), não na Sefin: os caminhos /parametros_municipais do
+    # manual respondem 404 (conferido em 01/10/2026 com certificado real).
+    def parametros_convenio(self, c_mun: str) -> dict:
+        r = self.s.get(f"{self.base}/parametrizacao/{c_mun}/convenio", timeout=TIMEOUT)
+        return json_ou_erro(r)
+
+    def aliquotas(self, c_mun: str, c_trib_nac: str, c_trib_mun: str = "",
+                  competencia: str = "") -> list[dict]:
+        """Alíquotas do ISS do serviço no município. O código vai como "01.06.01.000"
+        (tributação nacional + 3 dígitos da municipal, "000" se não houver)."""
+        from urllib.parse import quote
+        n = c_trib_nac.zfill(6)
+        codigo = f"{n[:2]}.{n[2:4]}.{n[4:6]}.{(c_trib_mun or '000').zfill(3)}"
+        url = f"{self.base}/parametrizacao/{c_mun}/{quote(codigo, safe='')}/{competencia}/aliquota"
+        r = self.s.get(url, timeout=TIMEOUT)
+        if r.status_code == 404:
+            return []
+        dados = json_ou_erro(r)
+        return [a for lista in (campo(dados, "aliquotas", padrao=None) or {}).values() for a in lista]
+
     def eventos(self, chave: str) -> list[bytes]:
         r = self.s.get(f"{self.base}/contribuintes/NFSe/{chave}/Eventos", timeout=TIMEOUT)
         if r.status_code == 404:

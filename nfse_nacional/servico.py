@@ -20,7 +20,7 @@ from . import assinatura, eventos, leitor, regras, validacao
 from .banco import Banco, Empresa, Tomador
 from .certificado import Certificado
 from .cliente_adn import ClienteADN
-from .cliente_http import ErroApi, sessao_mtls
+from .cliente_http import ErroApi, campo, sessao_mtls
 from .cliente_sefin import ClienteSefin
 from .config import ambiente as obter_ambiente
 from .dps import (DPS, IBSCBS, Endereco, Pessoa, Prestador, Servico,
@@ -124,6 +124,27 @@ def tomadores_de_notas(banco: Banco, empresa_id: int) -> int:
             banco.salvar_tomador(tom)
             n += 1
     return n
+
+
+@dataclass
+class ParametrosMunicipio:
+    ativo: bool
+    aliquota: Decimal | None
+    aliquota_desde: str
+    c_trib_nac: str
+    bruto: dict
+
+    def texto(self, municipio: str) -> str:
+        t = (f"{municipio}: convênio ATIVO no Sistema Nacional NFS-e." if self.ativo else
+             f"{municipio}: convênio NÃO está ativo no Sistema Nacional NFS-e.")
+        if self.aliquota is not None:
+            desde = "/".join(reversed(self.aliquota_desde.split("-"))) if self.aliquota_desde else ""
+            pct = f"{self.aliquota:.2f}".replace(".", ",")
+            t += (f"\nAlíquota do ISS do serviço {self.c_trib_nac[:2]}.{self.c_trib_nac[2:4]}."
+                  f"{self.c_trib_nac[4:6]}: {pct}%" + (f" (desde {desde})" if desde else "") + ".")
+        elif self.c_trib_nac:
+            t += "\nO município não informou alíquota para este serviço."
+        return t
 
 
 @dataclass
@@ -493,5 +514,22 @@ class Emissor:
             self.banco.atualizar_nota(nota_id, nfse_xml=xml)
         return gerar_pdf(xml, marca_dagua(self.banco, nota))
 
-    def parametros_convenio(self) -> dict:
-        return self.sefin.parametros_convenio(self.empresa.c_mun)
+    def parametros_municipio(self, c_trib_nac: str = "", c_trib_mun: str = "") -> "ParametrosMunicipio":
+        """Convênio do município (ativo no Ambiente Nacional?) e alíquota do ISS do serviço."""
+        e = self.empresa
+        conv = campo(self.adn.parametros_convenio(e.c_mun), "parametrosConvenio", padrao={}) or {}
+        ativo = bool(campo(conv, "aderenteAmbienteNacional")) and \
+            str(campo(conv, "situacaoEmissaoPadraoContribuintesRFB", padrao="")) == "1"
+        aliq = None
+        desde = ""
+        c_trib_nac = c_trib_nac or e.c_trib_nac
+        if c_trib_nac:
+            hoje = dt.date.today().isoformat()
+            vigentes = [a for a in self.adn.aliquotas(e.c_mun, c_trib_nac, c_trib_mun or e.c_trib_mun, hoje)
+                        if str(campo(a, "Incidencia", padrao="SIM")).upper() == "SIM"]
+            if vigentes:
+                atual = max(vigentes, key=lambda a: str(campo(a, "DtIni", padrao="")))
+                aliq = Decimal(str(campo(atual, "Aliq")))
+                desde = str(campo(atual, "DtIni", padrao=""))[:10]
+        return ParametrosMunicipio(ativo=ativo, aliquota=aliq, aliquota_desde=desde,
+                                   c_trib_nac=c_trib_nac, bruto=conv)

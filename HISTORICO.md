@@ -124,3 +124,13 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   backup diário do banco (`NFSE_BACKUP_DESTINO` para uma cópia extra), `importar-dados-desktop`.
 - Cofre do servidor: senha do certificado no banco cifrada com DPAPI de máquina (o serviço não vê
   o keyring do usuário). Dados em `C:\ProgramData\NFSE_Nacional`, pasta só para SYSTEM/Admins.
+
+## 0.7.1 — 01/10/2026
+
+- **Consultar município** (desktop: Configurar empresa → Tributação → Consultar; web: Empresa →
+  "Consultar município no sistema nacional"): dava HTTP 404. Os parâmetros municipais ficam no
+  **ADN** (`/parametrizacao/{IBGE}/convenio` e `/parametrizacao/{IBGE}/{01.06.01.000}/{data}/aliquota`),
+  não nos caminhos `/parametros_municipais` da Sefin citados no manual. Validado com certificado
+  real: Florianópolis com convênio ativo e ISS de 2,00% para o serviço 01.06.01.
+- A consulta marca o convênio como Ativo/Inativo e preenche a "Alíquota ISS padrão" com a do
+  município (usada só quando a regra exige, como na retenção pelo tomador).

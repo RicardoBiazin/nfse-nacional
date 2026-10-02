@@ -194,3 +194,17 @@ def test_inatividade_e_redirecionamento(ctx):
     c.post("/sair", data={"csrf": _csrf(r.text)})
     r = c.get("/notas", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/login")
+
+
+def test_consultar_municipio(ctx):
+    c, banco, sessao, tmp = ctx
+    _preparar(c, banco, tmp)
+    sessao.rota("GET", r"/parametrizacao/4205407/convenio$", lambda u, k: resposta(200, {
+        "parametrosConvenio": {"aderenteAmbienteNacional": 1, "situacaoEmissaoPadraoContribuintesRFB": 1}}))
+    sessao.rota("GET", r"/parametrizacao/4205407/01\.06\.01\.000/[\d-]+/aliquota$", lambda u, k: resposta(200, {
+        "aliquotas": {"01.06.01.000": [{"Incidencia": "SIM", "Aliq": 2.00, "DtIni": "2025-08-27T00:00:00"}]}}))
+    r = c.get("/empresa")
+    r = c.post("/empresa/consultar-municipio", data={"csrf": _csrf(r.text)})
+    assert "convênio ATIVO" in r.text and "2,00%" in r.text
+    e = banco.empresa_por_cnpj(CNPJ)
+    assert (e.convenio_ativo, e.p_aliq) == (1, "2.00")

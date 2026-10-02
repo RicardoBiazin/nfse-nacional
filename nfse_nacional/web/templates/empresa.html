@@ -62,8 +62,10 @@
     {{ campo('ibs_cst', 'IBS/CBS · CST', empresa.ibs_cst) }}
     {{ campo('ibs_c_class_trib', 'IBS/CBS · classificação tributária', empresa.ibs_c_class_trib) }}
   </div>
-  {% if pode('admin') %}<div class="acoes"><button class="primario">Salvar cadastro</button></div>{% endif %}
+  {% if pode('admin') %}<div class="acoes"><button class="primario">Salvar cadastro</button>
+    <button form="consultar-municipio" title="Convênio ativo e alíquota do ISS do serviço padrão, no sistema nacional">Consultar município no sistema nacional</button></div>{% endif %}
 </form>
+<form id="consultar-municipio" method="post" action="/empresa/consultar-municipio"><input type="hidden" name="csrf" value="{{ csrf }}"></form>
 
 <div class="cartao">
   <h2>Certificados digitais</h2>

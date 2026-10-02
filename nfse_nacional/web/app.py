@@ -673,6 +673,27 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
         flash(request, aviso="Cadastro salvo.")
         return RedirectResponse("/empresa", status_code=303)
 
+    @app.post("/empresa/consultar-municipio", dependencies=[Depends(csrf)])
+    def consultar_municipio(request: Request, u=Depends(exigir("admin"))):
+        """Convênio ativo e alíquota do ISS do serviço padrão, direto do sistema nacional."""
+        e = empresa_atual(request)
+        if not e or not e.c_mun:
+            flash(request, erro="Informe e salve o município (IBGE) antes de consultar.")
+            return RedirectResponse("/empresa", status_code=303)
+        try:
+            p = emissor(request, u, e).parametros_municipio()
+        except Exception as erro:      # noqa: BLE001
+            flash(request, erro=texto_erro(erro))
+            return RedirectResponse("/empresa", status_code=303)
+        e.convenio_ativo = 1 if p.ativo else 0
+        if p.aliquota is not None:
+            e.p_aliq = f"{p.aliquota:.2f}"
+        banco.salvar_empresa(e)
+        texto = p.texto(tabelas.nome_municipio(e.c_mun)).replace("\n", " ")
+        banco.auditar(u["login"], "consultar-municipio", texto, ip=ip_de(request))
+        flash(request, aviso=texto + " Convênio e alíquota padrão atualizados no cadastro.")
+        return RedirectResponse("/empresa", status_code=303)
+
     @app.post("/empresa/certificados", dependencies=[Depends(csrf)])
     async def cert_adicionar(request: Request, pfx: UploadFile, senha: str = Form(...),
                              principal: str = Form(""), u=Depends(exigir("admin"))):

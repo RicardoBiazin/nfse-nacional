@@ -89,12 +89,3 @@ class ClienteSefin:
             if b64:
                 saida.append(de_gzip_b64(b64))
         return saida
-
-    # ------------------------------------------------------------ parâmetros municipais
-    def parametros_convenio(self, c_mun: str) -> dict:
-        return json_ou_erro(self.s.get(
-            self._url(f"parametros_municipais/{c_mun}/convenio"), timeout=TIMEOUT))
-
-    def parametros_servico(self, c_mun: str, c_trib_nac: str) -> dict:
-        return json_ou_erro(self.s.get(
-            self._url(f"parametros_municipais/{c_mun}/{c_trib_nac}"), timeout=TIMEOUT))

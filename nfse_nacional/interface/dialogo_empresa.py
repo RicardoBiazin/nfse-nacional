@@ -259,14 +259,19 @@ class DialogoEmpresa(QDialog):
 
         def consultar():
             cert = cofre.certificado_ativo(self.banco, e)
-            return Emissor(self.banco, e, cert).parametros_convenio()
+            return Emissor(self.banco, e, cert).parametros_municipio(
+                so_digitos(self.c_trib_nac.text()), so_digitos(self.c_trib_mun.text()))
 
-        def pronto(dados):
-            import json
-            texto = json.dumps(dados, ensure_ascii=False, indent=2)[:3000]
-            ativo = "ativo" in texto.lower() and "inativo" not in texto.lower()
-            QMessageBox.information(self, "Parâmetros do convênio", texto)
-            self.convenio.setCurrentIndex(1 if ativo else self.convenio.currentIndex())
+        def pronto(p):
+            from ..tabelas import nome_municipio
+            texto = p.texto(nome_municipio(e.c_mun))
+            self.convenio.setCurrentIndex(max(self.convenio.findData(1 if p.ativo else 0), 0))
+            if p.aliquota is not None:
+                self.p_aliq.setText(f"{p.aliquota:.2f}".replace(".", ","))
+                texto += ("\n\nPreenchi \"Alíquota ISS padrão\" com esse valor. Ela só vai na nota "
+                          "quando a regra exige (ex.: ISS retido pelo tomador).")
+            texto += "\n\nClique em Salvar para gravar."
+            QMessageBox.information(self, "Parâmetros do município", texto)
         em_segundo_plano(consultar, pronto, lambda erro: mostrar_erro(self, erro, "Convênio"))
 
     def _coletar(self) -> Empresa:
