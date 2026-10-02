@@ -1,0 +1,65 @@
+:root {
+  --fundo: #f4f6f8; --cartao: #ffffff; --texto: #1d2733; --suave: #64707d; --borda: #d9dee4;
+  --verde: #1b7f3b; --azul: #2b3f8c; --amarelo: #f2b705; --vermelho: #b3261e; --laranja: #b26a00;
+  --cinza: #8a8f98; --destaque: #e9eef8;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fundo: #15191e; --cartao: #1e242b; --texto: #e3e7ec; --suave: #9aa5b1; --borda: #333c46;
+          --destaque: #26303b; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; background: var(--fundo); color: var(--texto); }
+a { color: var(--azul); }
+@media (prefers-color-scheme: dark) { a { color: #8fa8ff; } }
+header.topo { display: flex; align-items: center; gap: 16px; padding: 8px 20px; background: var(--cartao);
+  border-bottom: 1px solid var(--borda); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+header.topo .marca { display: flex; align-items: center; gap: 8px; font-weight: 600; text-decoration: none; color: inherit; }
+header.topo .marca img { width: 26px; height: 26px; }
+header.topo nav { display: flex; gap: 4px; flex-wrap: wrap; }
+header.topo nav a { padding: 6px 10px; border-radius: 6px; text-decoration: none; color: inherit; }
+header.topo nav a.ativo, header.topo nav a:hover { background: var(--destaque); }
+header.topo .direita { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.selo { padding: 3px 10px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+.selo.restrita { background: var(--amarelo); color: #000; }
+.selo.producao { background: var(--vermelho); color: #fff; }
+main { max-width: 1280px; margin: 18px auto; padding: 0 16px; }
+.cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.cartao h2 { margin: 0 0 12px; font-size: 16px; }
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 16px; }
+.grade .largo { grid-column: 1 / -1; }
+label { display: block; font-size: 12px; color: var(--suave); margin-bottom: 3px; }
+input, select, textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--borda); border-radius: 6px;
+  background: var(--cartao); color: var(--texto); font: inherit; }
+input:disabled, select:disabled { opacity: .55; }
+textarea { min-height: 70px; resize: vertical; }
+button, .botao { display: inline-block; padding: 7px 14px; border: 1px solid var(--borda); border-radius: 6px;
+  background: var(--cartao); color: var(--texto); font: inherit; cursor: pointer; text-decoration: none; }
+button:hover, .botao:hover { background: var(--destaque); }
+button.primario { background: var(--azul); border-color: var(--azul); color: #fff; font-weight: 600; }
+button.perigo { color: var(--vermelho); border-color: var(--vermelho); }
+.acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.desc { display: block; font-size: 12px; color: var(--cinza); margin-top: 2px; }
+.desc.alerta { color: var(--laranja); }
+.flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; }
+.flash.ok { background: #e3f4e8; color: #11502a; border: 1px solid #b6dfc3; }
+.flash.erro { background: #fbe7e6; color: #7a1a14; border: 1px solid #f0c0bc; }
+@media (prefers-color-scheme: dark) { .flash.ok { background:#16321f; color:#b6e6c4; border-color:#25553a; }
+  .flash.erro { background:#3a1b19; color:#f3c4bf; border-color:#5e2a26; } }
+.flash ul { margin: 6px 0 0; padding-left: 18px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--borda); text-align: left; vertical-align: top; }
+th { font-size: 12px; color: var(--suave); font-weight: 600; background: var(--cartao); }
+td.num { text-align: right; white-space: nowrap; }
+tr:hover td { background: var(--destaque); }
+.sit-autorizada { color: var(--verde); font-weight: 600; }
+.sit-cancelada { color: var(--cinza); text-decoration: line-through; }
+.sit-rejeitada { color: var(--vermelho); font-weight: 600; }
+.sit-indefinida, .sit-pendente { color: var(--laranja); font-weight: 600; }
+.mini { font-size: 12px; color: var(--suave); }
+.filtros { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-items: end; }
+.rolagem { overflow-x: auto; }
+.links a { margin-right: 8px; white-space: nowrap; }
+.caixa-login { max-width: 360px; margin: 10vh auto; }
+.caixa-login img { width: 56px; display: block; margin: 0 auto 10px; }
+progress { width: 100%; }
+@media (max-width: 700px) { header.topo nav { width: 100%; } }

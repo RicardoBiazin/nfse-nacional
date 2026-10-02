@@ -93,3 +93,22 @@ se a Sefin confirmar que ela não existe. Número de DPS reservado nunca é reut
 
 - Documentação técnica: https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual
 - Swagger (Produção Restrita, exige certificado): https://adn.producaorestrita.nfse.gov.br/contribuintes/docs/index.html
+
+## Versão web (uso interno na rede)
+
+Um PC/servidor da rede roda `NFSE_Servidor.exe`; os demais acessam pelo navegador.
+
+1. Copie `dist_unico\NFSE_Servidor.exe` para o servidor (ex.: `C:\NFSE\`).
+2. Opcional — trazer os dados do desktop **deste mesmo usuário/PC**:
+   `NFSE_Servidor.exe importar-dados-desktop` (banco, certificados e senhas → cofre do servidor).
+3. Em um terminal **como administrador**: `NFSE_Servidor.exe instalar-servico` (inicia com o
+   Windows, libera a porta 8443 no firewall).
+4. Abra `https://NOME-DO-SERVIDOR:8443`. Na primeira vez cria-se o administrador; o navegador
+   avisa que o certificado HTTPS é autoassinado (aceite uma vez em cada PC).
+5. Em **Empresa** envie o certificado A1 (se não importou do desktop); em **Usuários** crie as contas.
+
+Papéis: *consulta* (ver e baixar), *emissor* (emitir/duplicar/importar), *admin* (cancelar, empresa,
+certificados, usuários, auditoria). Variáveis: `NFSE_SYNC_HORAS` (sincronização automática,
+padrão 4), `NFSE_BACKUP_DESTINO` (pasta extra de backup, ex. no Google Drive),
+`NFSE_NACIONAL_DADOS` (pasta de dados). Remover: `NFSE_Servidor.exe remover-servico`.
+Senha de administrador esquecida: `NFSE_Servidor.exe criar-admin LOGIN` (no servidor, como admin).

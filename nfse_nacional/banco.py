@@ -50,6 +50,30 @@ CREATE TABLE IF NOT EXISTS certificados (
     principal INTEGER NOT NULL DEFAULT 0,
     UNIQUE (empresa_id, serial)
 );
+CREATE TABLE IF NOT EXISTS segredos (
+    chave TEXT PRIMARY KEY,
+    valor BLOB NOT NULL                 -- cifrado com DPAPI (modo servidor)
+);
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY,
+    login TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    nome TEXT NOT NULL DEFAULT '',
+    hash_senha TEXT NOT NULL,
+    papel TEXT NOT NULL DEFAULT 'consulta',   -- consulta | emissor | admin
+    ativo INTEGER NOT NULL DEFAULT 1,
+    falhas INTEGER NOT NULL DEFAULT 0,
+    bloqueado_ate TEXT,
+    criado_em TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS auditoria (
+    id INTEGER PRIMARY KEY,
+    quando TEXT NOT NULL,
+    usuario TEXT NOT NULL,
+    acao TEXT NOT NULL,
+    detalhe TEXT,
+    chave TEXT,
+    ip TEXT
+);
 CREATE TABLE IF NOT EXISTS tomadores (
     id INTEGER PRIMARY KEY,
     documento TEXT NOT NULL UNIQUE,
@@ -238,6 +262,50 @@ class Banco:
 
     def excluir_empresa(self, id_: int):
         self.con.execute("DELETE FROM empresas WHERE id=?", (id_,))
+
+    # ------------------------------------------------------------ segredos
+    def gravar_segredo(self, chave: str, valor: bytes):
+        self.con.execute("INSERT INTO segredos (chave, valor) VALUES (?, ?) "
+                         "ON CONFLICT(chave) DO UPDATE SET valor=excluded.valor", (chave, valor))
+
+    def ler_segredo(self, chave: str) -> bytes | None:
+        r = self.con.execute("SELECT valor FROM segredos WHERE chave=?", (chave,)).fetchone()
+        return bytes(r[0]) if r else None
+
+    def apagar_segredo(self, chave: str):
+        self.con.execute("DELETE FROM segredos WHERE chave=?", (chave,))
+
+    # ------------------------------------------------------------ usuários
+    def criar_usuario(self, login: str, nome: str, hash_senha: str, papel: str) -> int:
+        return self.con.execute(
+            "INSERT INTO usuarios (login, nome, hash_senha, papel, criado_em) VALUES (?, ?, ?, ?, ?)",
+            (login.strip(), nome.strip(), hash_senha, papel, _agora())).lastrowid
+
+    def usuario(self, login: str):
+        return self.con.execute("SELECT * FROM usuarios WHERE login=?", (login.strip(),)).fetchone()
+
+    def usuario_por_id(self, id_: int):
+        return self.con.execute("SELECT * FROM usuarios WHERE id=?", (id_,)).fetchone()
+
+    def usuarios(self):
+        return self.con.execute("SELECT * FROM usuarios ORDER BY login").fetchall()
+
+    def atualizar_usuario(self, id_: int, **campos):
+        if campos:
+            sets = ", ".join(f"{k}=?" for k in campos)
+            self.con.execute(f"UPDATE usuarios SET {sets} WHERE id=?", (*campos.values(), id_))
+
+    def ha_usuarios(self) -> bool:
+        return self.con.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone() is not None
+
+    # ------------------------------------------------------------ auditoria
+    def auditar(self, usuario: str, acao: str, detalhe: str = "", chave: str = "", ip: str = ""):
+        self.con.execute(
+            "INSERT INTO auditoria (quando, usuario, acao, detalhe, chave, ip) VALUES (?, ?, ?, ?, ?, ?)",
+            (_agora(), usuario, acao, detalhe, chave, ip))
+
+    def auditoria(self, limite: int = 200):
+        return self.con.execute("SELECT * FROM auditoria ORDER BY id DESC LIMIT ?", (limite,)).fetchall()
 
     # ------------------------------------------------------------ certificados
     def certificados(self, empresa_id: int) -> list[sqlite3.Row]:

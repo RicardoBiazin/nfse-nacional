@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}NFS-e Nacional{% endblock %}</title>
+  <link rel="icon" href="/static/icone.png">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js"></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+{% if u %}
+<header class="topo">
+  <a class="marca" href="/notas"><img src="/static/icone.png" alt="">NFS-e Nacional</a>
+  {% set caminho = request.url.path %}
+  <nav>
+    {% if pode('emissor') %}<a href="/emitir" class="{{ 'ativo' if caminho.startswith('/emitir') }}">Emitir NFS-e</a>{% endif %}
+    <a href="/notas" class="{{ 'ativo' if caminho.startswith('/notas') }}">Notas</a>
+    <a href="/empresa" class="{{ 'ativo' if caminho.startswith('/empresa') }}">Empresa</a>
+    {% if pode('admin') %}
+    <a href="/usuarios" class="{{ 'ativo' if caminho.startswith('/usuarios') }}">Usuários</a>
+    <a href="/auditoria" class="{{ 'ativo' if caminho.startswith('/auditoria') }}">Auditoria</a>
+    {% endif %}
+  </nav>
+  <div class="direita">
+    {% if empresas|length > 1 %}
+    <form method="post" action="/empresa/selecionar">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <select name="empresa_id" onchange="this.form.submit()" aria-label="Empresa">
+        {% for x in empresas %}<option value="{{ x.id }}" {{ 'selected' if empresa and x.id == empresa.id }}>{{ x.razao or x.cnpj }}</option>{% endfor %}
+      </select>
+    </form>
+    {% elif empresa %}<span class="mini">{{ empresa.razao }}</span>{% endif %}
+    {% if empresa %}
+      {% if empresa.ambiente == 'producao' %}<span class="selo producao">EMISSÃO EM PRODUÇÃO</span>
+      {% else %}<span class="selo restrita">EMISSÃO EM PRODUÇÃO RESTRITA (testes)</span>{% endif %}
+    {% endif %}
+    <a href="/conta" class="mini">{{ u.nome or u.login }}</a>
+    <form method="post" action="/sair"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Sair</button></form>
+  </div>
+</header>
+{% endif %}
+<main>
+  {% if aviso %}<div class="flash ok">{{ aviso }}</div>{% endif %}
+  {% if erro_flash %}<div class="flash erro">{{ erro_flash }}</div>{% endif %}
+  {% block conteudo %}{% endblock %}
+</main>
+<footer class="mini" style="text-align:center;margin:20px 0">NFS-e Nacional {{ VERSAO }} · uso interno</footer>
+</body>
+</html>

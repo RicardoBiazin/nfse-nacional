@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block titulo %}Emitir NFS-e · NFS-e Nacional{% endblock %}
+{% macro codigo(nome, tabela, rotulo, padrao='', dica='') -%}
+<div>
+  <label for="{{ nome }}">{{ rotulo }}</label>
+  <input id="{{ nome }}" name="{{ nome }}" value="{{ f.get(nome, '') }}" list="dl-{{ nome }}" autocomplete="off"
+         data-tabela="{{ tabela }}" data-padrao="{{ padrao }}" placeholder="{{ dica }}" class="campo-codigo">
+  <datalist id="dl-{{ nome }}"></datalist>
+  <span class="desc" id="desc-{{ nome }}"></span>
+</div>
+{%- endmacro %}
+{% block conteudo %}
+{% if resultado %}
+  {% if resultado.situacao == 'autorizada' %}
+  <div class="flash ok"><strong>NFS-e nº {{ resultado.numero }} autorizada.</strong> Chave {{ resultado.chave }}.
+    <a href="/notas/{{ resultado.nota_id }}/danfse" target="_blank">Abrir DANFSe</a> ·
+    <a href="/notas?ambiente={{ empresa.ambiente }}">Ver nas notas</a>
+    {% if resultado.mensagem %}<br><span class="mini">Avisos: {{ resultado.mensagem }}</span>{% endif %}</div>
+  {% elif resultado.situacao == 'rejeitada' %}
+  <div class="flash erro"><strong>Rejeitada pelo sistema nacional.</strong> {{ resultado.mensagem }}</div>
+  {% else %}
+  <div class="flash erro"><strong>Situação indefinida</strong> (sem confirmação do sistema nacional). Use "Reconsultar"
+    na lista de notas antes de emitir de novo. {{ resultado.mensagem }}</div>
+  {% endif %}
+{% endif %}
+{% if erros %}<div class="flash erro"><strong>Corrija antes de enviar:</strong><ul>{% for x in erros %}<li>{{ x }}</li>{% endfor %}</ul></div>{% endif %}
+
+<form method="post" action="/emitir" id="form-emitir">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="cartao">
+  <h2>Tomador</h2>
+  <div class="grade">
+    <div class="largo">
+      <label for="busca-tomador">Buscar tomador já usado (nome ou CPF/CNPJ)</label>
+      <div style="display:flex;gap:8px">
+        <input id="busca-tomador" list="dl-tomadores" autocomplete="off" placeholder="digite parte do nome ou do documento">
+        <a class="botao" id="repetir" href="#" title="Preenche serviço, valor e tributação com a última nota autorizada deste tomador">Repetir última nota</a>
+      </div>
+      <datalist id="dl-tomadores">{% for t in tomadores %}<option value="{{ t.nome }} — {{ fmt_doc(t.documento) }}">{% endfor %}</datalist>
+    </div>
+  </div>
+  <div id="bloco-tomador">{% include "_tomador.html" %}</div>
+</div>
+
+<div class="cartao">
+  <h2>Serviço</h2>
+  <div class="grade">
+    <div class="largo"><label for="descricao">Descrição</label><textarea id="descricao" name="descricao" required>{{ f.get('descricao', '') }}</textarea></div>
+    <div><label for="compet">Competência</label><input type="date" id="compet" name="compet" value="{{ f.get('compet', '') }}"></div>
+    {{ codigo('c_trib_nac', 'servico', 'Cód. tributação nacional', empresa.c_trib_nac, 'padrão da empresa — código ou descrição') }}
+    <div><label for="c_trib_mun">Cód. tributação municipal</label><input id="c_trib_mun" name="c_trib_mun" value="{{ f.get('c_trib_mun', '') }}" placeholder="padrão da empresa"></div>
+    {{ codigo('c_nbs', 'nbs', 'NBS', empresa.c_nbs, 'padrão da empresa — código ou descrição') }}
+    {{ codigo('c_loc', 'municipio', 'Local da prestação', empresa.c_mun, 'padrão: município da empresa') }}
+    <div class="largo"><label for="info">Informações complementares</label><input id="info" name="info" value="{{ f.get('info', '') }}"></div>
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Valores e ISSQN</h2>
+  <div class="grade">
+    <div><label for="v_serv">Valor do serviço (R$)</label><input id="v_serv" name="v_serv" value="{{ f.get('v_serv', '') }}" placeholder="0,00" required inputmode="decimal"></div>
+    <div><label for="v_desc">Desconto incondicionado</label><input id="v_desc" name="v_desc" value="{{ f.get('v_desc', '') }}" inputmode="decimal"></div>
+    <div><label for="trib_issqn">Tributação do ISSQN</label>
+      <select id="trib_issqn" name="trib_issqn" class="regra">
+        {% for k, v in [('1','Operação tributável'),('2','Imunidade'),('3','Exportação de serviço'),('4','Não incidência')] %}
+        <option value="{{ k }}" {{ 'selected' if f.get('trib_issqn') == k }}>{{ v }}</option>{% endfor %}
+      </select></div>
+    <div><label for="tp_ret_issqn">Retenção do ISSQN</label>
+      <select id="tp_ret_issqn" name="tp_ret_issqn" class="regra">
+        {% for k, v in [('1','Não retido'),('2','Retido pelo tomador'),('3','Retido pelo intermediário')] %}
+        <option value="{{ k }}" {{ 'selected' if f.get('tp_ret_issqn') == k }}>{{ v }}</option>{% endfor %}
+      </select></div>
+    <div id="bloco-aliquota">{% set valor = f.get('p_aliq', '') %}{% include "_aliquota.html" %}</div>
+    {% if empresa.op_simp_nac == '3' %}
+    <div><label for="p_sn">Tributos aprox. Simples (%)</label>
+      <input id="p_sn" name="p_sn" value="{{ f.get('p_sn', '') }}" inputmode="decimal"
+             title="Alíquota efetiva do mês (Lei 12.741). Ao emitir, vira o padrão da empresa."></div>
+    {% endif %}
+    <div class="largo"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="ibs" value="1" style="width:auto" {{ 'checked' if f.get('ibs') }}>Enviar grupo IBS/CBS configurado na empresa</label></div>
+  </div>
+</div>
+
+<div class="cartao">
+  {% if empresa.ambiente == 'producao' %}
+  <label style="display:flex;gap:6px;align-items:center;color:var(--vermelho);font-weight:600">
+    <input type="checkbox" name="confirmo_producao" value="1" style="width:auto" required>Confirmo: ambiente de PRODUÇÃO, a nota terá valor fiscal.</label>
+  {% else %}<p class="mini">Ambiente de testes (Produção Restrita): a nota não tem valor fiscal.</p>{% endif %}
+  <div class="acoes">
+    <button class="primario" name="acao" value="emitir">Emitir NFS-e</button>
+    <button name="acao" value="validar" formnovalidate title="Valida no schema oficial e assina, sem enviar">Validar e baixar XML (não envia)</button>
+    <a class="botao" href="/emitir">Limpar</a>
+  </div>
+</div>
+</form>
+
+<script>
+(function () {
+  const descrever = (inp) => {
+    const alvo = document.getElementById('desc-' + inp.id);
+    const p = new URLSearchParams({tabela: inp.dataset.tabela, codigo: inp.value, padrao: inp.dataset.padrao || ''});
+    fetch('/fragmentos/descricao?' + p).then(r => r.text()).then(h => alvo.innerHTML = h);
+  };
+  let espera;
+  document.querySelectorAll('.campo-codigo').forEach(inp => {
+    descrever(inp);
+    inp.addEventListener('input', () => {
+      if (inp.value.includes(' - ')) inp.value = inp.value.split(' - ')[0].trim();   // escolheu na lista
+      clearTimeout(espera);
+      espera = setTimeout(() => {
+        descrever(inp);
+        if (!/^\d+$/.test(inp.value) && inp.value.length >= 2) {
+          const p = new URLSearchParams({tabela: inp.dataset.tabela, q: inp.value});
+          fetch('/fragmentos/opcoes?' + p).then(r => r.text()).then(h => document.getElementById('dl-' + inp.id).innerHTML = h);
+        }
+      }, 250);
+    });
+  });
+  const busca = document.getElementById('busca-tomador');
+  busca.addEventListener('change', () => {
+    fetch('/fragmentos/tomador?' + new URLSearchParams({busca: busca.value}))
+      .then(r => r.text()).then(h => { document.getElementById('bloco-tomador').innerHTML = h; });
+  });
+  document.getElementById('repetir').addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const doc = (document.getElementById('t_doc') || {}).value;
+    if (!doc) { alert('Escolha um tomador primeiro.'); return; }
+    location.href = '/emitir?repetir=' + encodeURIComponent(doc);
+  });
+  const regra = () => {
+    const p = new URLSearchParams({trib_issqn: document.getElementById('trib_issqn').value,
+      tp_ret_issqn: document.getElementById('tp_ret_issqn').value,
+      p_aliq: (document.getElementById('p_aliq') || {}).value || ''});
+    fetch('/fragmentos/aliquota?' + p).then(r => r.text()).then(h => document.getElementById('bloco-aliquota').innerHTML = h);
+  };
+  document.querySelectorAll('select.regra').forEach(s => s.addEventListener('change', regra));
+})();
+</script>
+{% endblock %}

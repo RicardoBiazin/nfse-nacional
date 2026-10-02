@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block titulo %}Notas · NFS-e Nacional{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <form method="get" class="filtros">
+    <div><label>Ambiente</label>
+      <select name="ambiente">
+        <option value="producao" {{ 'selected' if f.ambiente == 'producao' }}>Produção</option>
+        <option value="producao_restrita" {{ 'selected' if f.ambiente == 'producao_restrita' }}>Produção Restrita</option>
+      </select></div>
+    <div><label>De</label><input type="date" name="inicio" value="{{ f.inicio }}"></div>
+    <div><label>Até</label><input type="date" name="fim" value="{{ f.fim }}"></div>
+    <div><label>Origem</label>
+      <select name="origem">
+        <option value="">Todas</option>
+        <option value="emitida" {{ 'selected' if f.origem == 'emitida' }}>Emitidas</option>
+        <option value="recebida" {{ 'selected' if f.origem == 'recebida' }}>Recebidas</option>
+      </select></div>
+    <div><label>Situação</label>
+      <select name="situacao"><option value="">Todas</option>
+        {% for s in situacoes %}<option value="{{ s }}" {{ 'selected' if f.situacao == s }}>{{ s|capitalize }}</option>{% endfor %}
+      </select></div>
+    <div style="grid-column: span 2"><label>Buscar</label><input name="q" value="{{ f.q }}" placeholder="nome, descrição, número, chave"></div>
+    <div><button class="primario">Buscar</button></div>
+  </form>
+  <div class="acoes">
+    <form method="post" action="/notas/sincronizar">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="ambiente" value="{{ f.ambiente }}">
+      <button title="Baixa do ADN as notas emitidas e recebidas">Sincronizar ADN</button>
+    </form>
+    <a class="botao" href="/notas/planilha?{{ request.query_params }}">Planilha XLSX</a>
+    {% if pode('emissor') %}
+    <form method="post" action="/notas/importar" enctype="multipart/form-data" style="display:flex;gap:6px;align-items:center">
+      <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="ambiente" value="{{ f.ambiente }}">
+      <input type="file" name="arquivos" multiple accept=".xml,.pdf,.zip" required style="max-width:260px">
+      <button title="XML, PDF de DANFSe (o app lê a chave e baixa o XML) ou ZIP">Importar XML/PDF</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="/notas/exportar" class="cartao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% for k, v in f.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  <div class="acoes" style="margin-top:0;margin-bottom:10px">
+    <strong>{{ linhas|length }} nota(s)</strong>
+    <span class="mini">· emitidas autorizadas no período: R$ {{ moeda(total) }}</span>
+    <span style="margin-left:auto"></span>
+    <label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" name="xml" value="1" checked style="width:auto">XML</label>
+    <label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" name="pdf" value="1" checked style="width:auto">PDF</label>
+    <button title="Sem nenhuma marcada, exporta todas as listadas">Exportar selecionadas (.zip)</button>
+  </div>
+  <div class="rolagem">
+  <table>
+    <thead><tr>
+      <th><input type="checkbox" style="width:auto" onclick="document.querySelectorAll('input[name=ids]').forEach(c=>c.checked=this.checked)" aria-label="Selecionar todas"></th>
+      <th>Situação</th><th>Origem</th><th>Nº</th><th>Compet.</th><th>Tomador / Prestador</th>
+      <th>Descrição</th><th>Valor</th><th>ISS</th><th>Ações</th>
+    </tr></thead>
+    <tbody>
+    {% for n in linhas %}
+      <tr>
+        <td><input type="checkbox" name="ids" value="{{ n.id }}" style="width:auto"></td>
+        <td class="sit-{{ n.situacao }}">{{ n.situacao }}</td>
+        <td>{{ n.origem }}</td>
+        <td class="num">{{ n.numero or '' }}{% if not n.numero and n.n_dps %}<span class="mini">DPS {{ n.n_dps }}</span>{% endif %}</td>
+        <td>{{ data_br(n.d_compet) }}</td>
+        <td>{{ n.tomador_nome if n.origem == 'emitida' else n.prestador_nome }}</td>
+        <td title="{{ n.descricao or '' }}">{{ (n.descricao or '')[:70] }}{% if (n.descricao or '')|length > 70 %}…{% endif %}
+          {% if n.mensagem and n.situacao != 'autorizada' %}<span class="desc alerta">{{ n.mensagem[:160] }}</span>{% endif %}</td>
+        <td class="num">{{ moeda(n.v_serv) }}</td>
+        <td class="num">{{ moeda(n.v_issqn) }}</td>
+        <td class="links">
+          {% if n.chave %}<a href="/notas/{{ n.id }}/danfse" target="_blank">DANFSe</a>{% endif %}
+          <a href="/notas/{{ n.id }}/xml">XML</a>
+          {% if n.origem == 'emitida' and pode('emissor') %}<a href="/notas/{{ n.id }}/duplicar">Duplicar</a>{% endif %}
+          {% if n.situacao in ('indefinida', 'pendente') and pode('emissor') %}<button form="rec-{{ n.id }}" class="mini">Reconsultar</button>{% endif %}
+          {% if n.origem == 'emitida' and n.situacao == 'autorizada' and pode('admin') %}<a href="/notas/{{ n.id }}/cancelar" style="color:var(--vermelho)">Cancelar</a>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="10" class="mini">Nenhuma nota no período. Use "Sincronizar ADN" para trazer as notas.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</form>
+{% for n in linhas if n.situacao in ('indefinida', 'pendente') %}
+<form id="rec-{{ n.id }}" method="post" action="/notas/{{ n.id }}/reconsultar"><input type="hidden" name="csrf" value="{{ csrf }}"></form>
+{% endfor %}
+{% endblock %}

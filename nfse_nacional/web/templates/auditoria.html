@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Auditoria · NFS-e Nacional{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h2>Auditoria <span class="mini">· últimos 500 registros</span></h2>
+  <div class="rolagem"><table>
+    <thead><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Detalhe</th><th>Chave</th><th>IP</th></tr></thead>
+    <tbody>{% for a in linhas %}
+      <tr><td style="white-space:nowrap">{{ data_br(a.quando) }} {{ a.quando[11:19] }}</td><td>{{ a.usuario }}</td>
+        <td>{{ a.acao }}</td><td>{{ a.detalhe or '' }}</td><td class="mini">{{ a.chave or '' }}</td><td class="mini">{{ a.ip or '' }}</td></tr>
+    {% else %}<tr><td colspan="6" class="mini">Nada registrado ainda.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endblock %}

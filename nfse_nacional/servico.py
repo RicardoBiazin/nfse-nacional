@@ -183,8 +183,11 @@ def _dec(texto: str | None) -> Decimal | None:
 
 class Emissor:
     def __init__(self, banco: Banco, empresa: Empresa, certificado: Certificado,
-                 sessao: requests.Session | None = None, algoritmo: str = "sha1"):
+                 sessao: requests.Session | None = None, algoritmo: str = "sha1",
+                 usuario: str = "desktop", ip: str = ""):
         self.banco = banco
+        self.usuario = usuario          # quem opera (auditoria)
+        self.ip = ip
         self.empresa = empresa
         self.cert = certificado
         self.amb = obter_ambiente(empresa.ambiente)
@@ -294,7 +297,11 @@ class Emissor:
             tomador_doc=dados.tomador.documento if dados.tomador else "",
             tomador_nome=dados.tomador.nome if dados.tomador else "",
             descricao=dados.descricao, v_serv=str(dados.v_serv), dps_xml=xml)
-        return self._enviar(nota_id, dps.id, xml)
+        r = self._enviar(nota_id, dps.id, xml)
+        self.banco.auditar(self.usuario, "emitir",
+                           f"DPS {e.serie}/{n} R$ {dados.v_serv} -> {r.situacao} {r.mensagem or ''}".strip(),
+                           r.chave, self.ip)
+        return r
 
     def _enviar(self, nota_id: int, id_dps: str, xml: bytes) -> Resultado:
         try:
@@ -359,6 +366,8 @@ class Emissor:
                                   ev.descricao, ev.dh_proc, xml_evento)
         self.banco.atualizar_nota(nota_id, situacao="cancelada",
                                   mensagem=f"Cancelada: {x_motivo}")
+        self.banco.auditar(self.usuario, "cancelar", f"motivo {c_motivo}: {x_motivo}",
+                           nota["chave"], self.ip)
         return xml_evento
 
     # ------------------------------------------------------------ ADN

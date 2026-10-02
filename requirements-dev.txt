@@ -1,5 +1,6 @@
 -r requirements.txt
 pytest>=8
+httpx>=0.27        # só nos testes: TestClient da versão web
 xmlsec>=1.3.14     # só nos testes: verificação independente da assinatura
 pypdfium2>=4.30   # só nos testes: renderiza o DANFSe gerado
 pyinstaller>=6.10

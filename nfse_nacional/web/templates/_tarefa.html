@@ -1,0 +1,13 @@
+{% if not t %}
+<p>Tarefa não encontrada. <a href="{{ voltar }}">Voltar</a></p>
+{% elif t.estado == 'rodando' %}
+<div hx-get="/fragmentos/tarefa/{{ id_ }}?voltar={{ voltar|urlencode }}" hx-trigger="every 1s" hx-swap="outerHTML">
+  <progress></progress>
+  <p class="mini">{{ t.mensagem }}</p>
+</div>
+{% else %}
+<div>
+  <div class="flash {{ 'ok' if t.estado == 'ok' else 'erro' }}">{{ t.resultado }}</div>
+  <a class="botao primario" href="{{ voltar }}">Voltar</a>
+</div>
+{% endif %}

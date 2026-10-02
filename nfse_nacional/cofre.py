@@ -19,6 +19,30 @@ from .config import pasta_dados
 
 SERVICO_KEYRING = "NFSE_Nacional"
 
+# Onde ficam as senhas dos certificados:
+#   None  -> keyring do usuário do Windows (desktop)
+#   Banco -> tabela `segredos`, cifrada com DPAPI de máquina (servidor web / serviço)
+_BANCO_SEGREDOS = None
+
+
+def usar_cofre_do_servidor(banco):
+    """Modo servidor: senhas no banco, cifradas com DPAPI (o serviço não vê o keyring)."""
+    global _BANCO_SEGREDOS
+    _BANCO_SEGREDOS = banco
+
+
+def usar_keyring():
+    global _BANCO_SEGREDOS
+    _BANCO_SEGREDOS = None
+
+
+def _guardar(chave: str, senha: str):
+    if _BANCO_SEGREDOS is not None:
+        from . import dpapi
+        _BANCO_SEGREDOS.gravar_segredo(chave, dpapi.cifrar(senha.encode("utf-8")))
+    else:
+        keyring.set_password(SERVICO_KEYRING, chave, senha)
+
 
 def _restringir_acl(caminho: Path):
     """Só o usuário atual lê o arquivo (no Windows a herança da pasta é larga)."""
@@ -50,16 +74,29 @@ def importar_certificado(origem: str | os.PathLike, senha: str) -> tuple[Certifi
     destino = destino_dir / f"{doc}_{cert.cert.serial_number:x}.pfx"
     if Path(origem).resolve() != destino.resolve():
         shutil.copyfile(origem, destino)
-    _restringir_acl(destino)
-    keyring.set_password(SERVICO_KEYRING, chave_cofre(cert), senha)
+    if _BANCO_SEGREDOS is None:
+        _restringir_acl(destino)        # no servidor a pasta inteira já é protegida
+    _guardar(chave_cofre(cert), senha)
     return cert, destino
 
 
 def senha_guardada(chave: str) -> str | None:
+    if _BANCO_SEGREDOS is not None:
+        from . import dpapi
+        cifrado = _BANCO_SEGREDOS.ler_segredo(chave)
+        if cifrado is not None:
+            return dpapi.decifrar(cifrado).decode("utf-8")
+        # Certificado importado antes pelo desktop neste mesmo usuário: tenta o keyring.
+        try:
+            return keyring.get_password(SERVICO_KEYRING, chave)
+        except Exception:      # noqa: BLE001 - serviço sem keyring utilizável
+            return None
     return keyring.get_password(SERVICO_KEYRING, chave)
 
 
 def esquecer_senha(chave: str):
+    if _BANCO_SEGREDOS is not None:
+        _BANCO_SEGREDOS.apagar_segredo(chave)
     try:
         keyring.delete_password(SERVICO_KEYRING, chave)
     except PasswordDeleteError:
@@ -108,7 +145,7 @@ def migrar_certificado_antigo(banco, empresa):
         cert = Certificado.de_arquivo(empresa.cert_arquivo, senha)
     except Exception:      # noqa: BLE001 - deixa o usuário reimportar
         return
-    keyring.set_password(SERVICO_KEYRING, chave_cofre(cert), senha)
+    _guardar(chave_cofre(cert), senha)
     banco.adicionar_certificado(empresa.id, empresa.cert_arquivo, chave_cofre(cert),
                                 cert.documento[1], cert.titular,
                                 f"{cert.cert.serial_number:x}", cert.validade.isoformat())

@@ -1,0 +1,10 @@
+<label for="p_aliq">Alíquota ISS (%)</label>
+{% if regra == 'proibida' %}
+<input id="p_aliq" name="p_aliq" value="" disabled placeholder="não se informa nesta situação">
+<span class="desc">O ISS é apurado pelo regime da empresa (ex.: Simples sem retenção).</span>
+{% elif regra == 'obrigatoria' %}
+<input id="p_aliq" name="p_aliq" value="{{ valor }}" required placeholder="obrigatória (máx. 5%)" inputmode="decimal">
+<span class="desc alerta">Obrigatória nesta situação.</span>
+{% else %}
+<input id="p_aliq" name="p_aliq" value="{{ valor }}" placeholder="vazio = automático pela regra" inputmode="decimal">
+{% endif %}

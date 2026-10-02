@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titulo %}Cancelar NFS-e · NFS-e Nacional{% endblock %}
+{% block conteudo %}
+<div class="cartao" style="max-width:640px">
+  <h2>Cancelar NFS-e nº {{ n.numero }}</h2>
+  <p>{{ n.tomador_nome }} · R$ {{ moeda(n.v_serv) }} · competência {{ data_br(n.d_compet) }}<br>
+     <span class="mini">Chave {{ n.chave }} · ambiente {{ n.ambiente }}</span></p>
+  {% if n.ambiente == 'producao' %}<div class="flash erro">Nota de PRODUÇÃO: o cancelamento é definitivo.</div>{% endif %}
+  {% if erro %}<div class="flash erro">{{ erro }}</div>{% endif %}
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Motivo</label>
+    <select name="motivo">{% for k, v in MOTIVOS.items() %}<option value="{{ k }}">{{ k }} - {{ v }}</option>{% endfor %}</select>
+    <label style="margin-top:8px">Justificativa (15 a 255 caracteres)</label>
+    <textarea name="justificativa" minlength="15" maxlength="255" required></textarea>
+    <div class="acoes"><button class="perigo">Cancelar a NFS-e</button><a class="botao" href="/notas?ambiente={{ n.ambiente }}">Voltar</a></div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block titulo %}Empresa · NFS-e Nacional{% endblock %}
+{% macro campo(nome, rotulo, valor, dica='', tipo='text') -%}
+<div><label for="{{ nome }}">{{ rotulo }}</label>
+  <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}" value="{{ valor or '' }}" placeholder="{{ dica }}" {{ '' if pode('admin') else 'disabled' }}></div>
+{%- endmacro %}
+{% macro escolha(nome, rotulo, atual, opcoes) -%}
+<div><label for="{{ nome }}">{{ rotulo }}</label>
+  <select id="{{ nome }}" name="{{ nome }}" {{ '' if pode('admin') else 'disabled' }}>
+    {% for k, v in opcoes %}<option value="{{ k }}" {{ 'selected' if (atual if atual is not none else '')|string == k|string }}>{{ v }}</option>{% endfor %}
+  </select></div>
+{%- endmacro %}
+{% block conteudo %}
+{% if not empresa %}
+<div class="cartao">
+  <h2>Cadastrar a empresa</h2>
+  {% if pode('admin') %}
+  <p>Envie o certificado A1 (.pfx) da empresa: o CNPJ e a razão social vêm dele.</p>
+  {% include "_cert_upload.html" %}
+  {% else %}<p>Peça a um administrador para cadastrar a empresa e o certificado.</p>{% endif %}
+</div>
+{% else %}
+<form method="post" action="/empresa" class="cartao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>{{ empresa.razao }} <span class="mini">· {{ fmt_doc(empresa.cnpj) }}</span></h2>
+  <div class="grade">
+    {{ campo('razao', 'Razão social', empresa.razao) }}
+    {{ campo('im', 'Inscrição municipal', empresa.im) }}
+    <div><label for="c_mun">Município (IBGE)</label><input id="c_mun" name="c_mun" value="{{ empresa.c_mun }}" {{ '' if pode('admin') else 'disabled' }}>
+      {% if empresa.c_mun %}<span class="desc">{{ empresa.c_mun }} - {{ nome_municipio(empresa.c_mun) }}</span>{% else %}<span class="desc alerta">obrigatório para emitir</span>{% endif %}</div>
+    {{ campo('fone', 'Telefone', empresa.fone) }}
+    {{ campo('email', 'E-mail', empresa.email) }}
+    {{ campo('serie', 'Série da DPS', empresa.serie, '1 a 49999 (70000+ é do portal)') }}
+    {{ campo('proximo', 'Próximo nº da DPS', prox, '', 'number') }}
+    {{ escolha('ambiente', 'Ambiente de emissão', empresa.ambiente, [('producao_restrita','Produção Restrita (testes)'),('producao','PRODUÇÃO (vale imposto)')]) }}
+  </div>
+  {% if pode('admin') and empresa.ambiente != 'producao' %}
+  <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" name="confirmo_producao" value="1" style="width:auto">
+    Confirmo a mudança para PRODUÇÃO (notas com valor fiscal), se escolhida acima.</label>
+  {% endif %}
+  <h2 style="margin-top:18px">Tributação</h2>
+  <div class="grade">
+    {{ escolha('op_simp_nac', 'Simples Nacional', empresa.op_simp_nac, [('1','Não optante'),('2','MEI'),('3','Simples Nacional ME/EPP')]) }}
+    {{ escolha('reg_ap_trib_sn', 'Regime de apuração (ME/EPP)', empresa.reg_ap_trib_sn, [('','—'),('1','Tributos federais e ISS pelo SN'),('2','Federais pelo SN, ISS por fora'),('3','Federais e ISS por fora do SN')]) }}
+    {{ escolha('reg_esp_trib', 'Regime especial', empresa.reg_esp_trib, [('0','Nenhum'),('1','Ato cooperado'),('2','Estimativa'),('3','Microempresa municipal'),('4','Notário ou registrador'),('5','Profissional autônomo'),('6','Sociedade de profissionais'),('9','Outros')]) }}
+    {{ escolha('convenio_ativo', 'Convênio do município', empresa.convenio_ativo, [('','Não sei'),('1','Ativo'),('0','Inativo')]) }}
+    {{ campo('p_aliq', 'Alíquota ISS padrão (%)', empresa.p_aliq, 'usada só quando a regra exige') }}
+    {{ campo('p_tot_sn', 'Tributos aprox. Simples (%)', moeda(empresa.p_tot_sn) if empresa.p_tot_sn else '') }}
+    {{ campo('p_tot_fed', 'Tributos aprox. federal % (não optante)', empresa.p_tot_fed) }}
+    {{ campo('p_tot_est', 'Tributos aprox. estadual % (não optante)', empresa.p_tot_est) }}
+    {{ campo('p_tot_mun', 'Tributos aprox. municipal % (não optante)', empresa.p_tot_mun) }}
+  </div>
+  <h2 style="margin-top:18px">Serviço padrão</h2>
+  <div class="grade">
+    <div><label for="c_trib_nac">Cód. tributação nacional</label><input id="c_trib_nac" name="c_trib_nac" value="{{ empresa.c_trib_nac }}" {{ '' if pode('admin') else 'disabled' }}>
+      {% if empresa.c_trib_nac %}<span class="desc" hx-get="/fragmentos/descricao?tabela=servico&codigo={{ empresa.c_trib_nac }}" hx-trigger="load"></span>{% endif %}</div>
+    {{ campo('c_trib_mun', 'Cód. tributação municipal', empresa.c_trib_mun) }}
+    <div><label for="c_nbs">NBS</label><input id="c_nbs" name="c_nbs" value="{{ empresa.c_nbs }}" {{ '' if pode('admin') else 'disabled' }}>
+      {% if empresa.c_nbs %}<span class="desc" hx-get="/fragmentos/descricao?tabela=nbs&codigo={{ empresa.c_nbs }}" hx-trigger="load"></span>{% endif %}</div>
+    <div class="largo"><label for="descricao_padrao">Descrição padrão</label><textarea id="descricao_padrao" name="descricao_padrao" {{ '' if pode('admin') else 'disabled' }}>{{ empresa.descricao_padrao }}</textarea></div>
+    {{ campo('ibs_c_ind_op', 'IBS/CBS · indicador da operação', empresa.ibs_c_ind_op, 'vazio = não envia o grupo') }}
+    {{ campo('ibs_cst', 'IBS/CBS · CST', empresa.ibs_cst) }}
+    {{ campo('ibs_c_class_trib', 'IBS/CBS · classificação tributária', empresa.ibs_c_class_trib) }}
+  </div>
+  {% if pode('admin') %}<div class="acoes"><button class="primario">Salvar cadastro</button></div>{% endif %}
+</form>
+
+<div class="cartao">
+  <h2>Certificados digitais</h2>
+  <p class="mini">O <strong>principal</strong> é usado na emissão; se vencer, o servidor usa o válido com maior validade.
+    Aceita o mesmo CNPJ ou o mesmo CNPJ raiz (filial). A senha fica cifrada neste servidor (DPAPI).</p>
+  <table>
+    <thead><tr><th></th><th>Titular</th><th>CNPJ/CPF</th><th>Válido até</th><th>Situação</th><th></th></tr></thead>
+    <tbody>
+    {% for c in certs %}
+      {% set vencido = c.validade < agora %}
+      <tr>
+        <td>{{ '★ principal' if c.principal }}</td>
+        <td>{{ c.titular }}</td><td>{{ fmt_doc(c.documento) }}</td><td>{{ data_br(c.validade) }}</td>
+        <td class="{{ 'sit-rejeitada' if vencido else 'sit-autorizada' }}">{{ 'VENCIDO' if vencido else 'válido' }}</td>
+        <td>{% if pode('admin') %}
+          {% if not c.principal %}<form method="post" action="/empresa/certificados/{{ c.id }}/principal" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Tornar principal</button></form>{% endif %}
+          <form method="post" action="/empresa/certificados/{{ c.id }}/remover" style="display:inline" onsubmit="return confirm('Remover este certificado do servidor?')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="perigo">Remover</button></form>
+        {% endif %}</td>
+      </tr>
+    {% else %}<tr><td colspan="6" class="mini">Nenhum certificado.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if pode('admin') %}<h2 style="margin-top:16px">Adicionar certificado</h2>{% include "_cert_upload.html" %}{% endif %}
+</div>
+{% endif %}
+{% endblock %}

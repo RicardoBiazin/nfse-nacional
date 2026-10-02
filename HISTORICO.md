@@ -110,3 +110,17 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   Web do portal — no DANFSe aparece "0 - PIS/COFINS/CSLL Não Retidos".
 - DANFSe: "Valor Líquido da NFS-e + IBS/CBS" mostra R$ 0,00 quando a nota não tem IBS/CBS,
   igual ao DANFSe oficial (antes "-").
+
+## 0.7.0 — 01/10/2026
+
+- **Versão web interna** (`nfse_nacional/web/`, FastAPI + Jinja2 + HTMX) sobre o mesmo núcleo:
+  Emitir (busca de tomador, repetir/duplicar, descritivos e busca de códigos, alíquota pela regra,
+  % Simples), Notas (filtros, sincronizar ADN em segundo plano, DANFSe, XML, planilha, exportar
+  .zip, importar XML/PDF/ZIP, reconsultar, cancelar), Empresa/Certificados, Usuários, Auditoria.
+- Login por usuário (scrypt), papéis consulta/emissor/admin, bloqueio após 5 erros, sessão com
+  expiração por inatividade, CSRF em todo POST, auditoria de emissão/cancelamento/login.
+- `NFSE_Servidor.exe` (`servidor.py`): HTTPS autoassinado, `instalar-servico` (tarefa ao iniciar o
+  Windows como SYSTEM + regra de firewall), sincronização automática do ADN (padrão 4 h),
+  backup diário do banco (`NFSE_BACKUP_DESTINO` para uma cópia extra), `importar-dados-desktop`.
+- Cofre do servidor: senha do certificado no banco cifrada com DPAPI de máquina (o serviço não vê
+  o keyring do usuário). Dados em `C:\ProgramData\NFSE_Nacional`, pasta só para SYSTEM/Admins.
