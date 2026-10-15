@@ -149,3 +149,16 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   importar dados do desktop, criar/redefinir administrador, ver o log). Aceita a opção por
   argumento (`NFSE_Servidor.bat 5`) e a porta pela variável `NFSE_PORTA`. Fica ao lado do
   `NFSE_Servidor.exe` (ou usa o `.venv` na pasta do código). `.gitattributes` força CRLF em `.bat`.
+
+## 0.7.4 — 15/10/2026
+
+- **HTTPS que o navegador aceita:** o certificado autoassinado fazia o Chrome/Edge mostrar
+  "Sua conexão não é particular" (CertificateAuthorityInvalid) — parecia que a versão web não
+  funcionava. Agora o servidor cria uma **AC local** e emite o certificado do site assinado por
+  ela (SAN com nome e IPs, uso de chave de servidor, 825 dias). Renova sozinho se o IP mudar ou
+  perto do vencimento, mantendo a mesma AC. O certificado antigo é trocado na primeira partida.
+- Cada PC confia uma vez na AC: `NFSE_Servidor.bat` opção 9 (no servidor) ou
+  `Confiar_no_servidor_NFSe.bat` (nos outros PCs; baixa `https://SERVIDOR:8443/ca.crt`, mostra a
+  impressão digital e instala em Raiz Confiável do usuário, sem administrador).
+- Opção 1 do menu abre o navegador sozinha; opção 5 mostra a impressão digital da AC.
+- Novo comando `NFSE_Servidor.exe confiar-certificado`; rota pública `/ca.crt` (só o certificado).

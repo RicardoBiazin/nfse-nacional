@@ -44,6 +44,7 @@ echo   5  Situação (serviço e servidor respondendo)
 echo   6  Importar dados do app desktop deste usuário
 echo   7  Criar ou redefinir administrador               [admin]
 echo   8  Ver o final do log
+echo   9  Confiar no certificado HTTPS neste PC (tira o aviso do navegador)
 echo   0  Sair
 echo ------------------------------------------------------------
 set "OPCAO="
@@ -59,6 +60,7 @@ if "%OPCAO%"=="5" goto situacao
 if "%OPCAO%"=="6" goto importar
 if "%OPCAO%"=="7" goto admin
 if "%OPCAO%"=="8" goto log
+if "%OPCAO%"=="9" goto confiar
 if "%OPCAO%"=="0" exit /b 0
 echo Opção inválida: %OPCAO%
 goto fim
@@ -72,6 +74,9 @@ if "!RESPONDE!"=="1" (
     goto fim
 )
 echo Iniciando em https://%COMPUTERNAME%:%PORTA%  ^(Ctrl+C para parar^)
+echo O navegador abre sozinho em alguns segundos. Se aparecer "Sua conexão não é particular",
+echo use a opção 9 neste PC (e o Confiar_no_servidor_NFSe.bat nos outros PCs).
+start "" /min powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 5; Start-Process 'https://%COMPUTERNAME%:%PORTA%/'"
 %SERVIDOR% rodar --porta %PORTA%
 goto fim
 
@@ -109,6 +114,10 @@ if "!RESPONDE!"=="1" (
     echo Servidor: NÃO está respondendo na porta %PORTA%.
 )
 echo Dados: %DADOS%
+if exist "%DADOS%\https\ca.crt" (
+    echo Impressão digital da autoridade do HTTPS ^(compare ao instalar nos outros PCs^):
+    certutil -hashfile "%DADOS%\https\ca.crt" SHA256 <nul | findstr /v /c:"CertUtil" /c:"SHA256"
+)
 goto fim
 
 rem ------------------------------------------------------------------ 6
@@ -134,6 +143,19 @@ if not exist "%DADOS%\logs\servidor.log" (
     goto fim
 )
 powershell -NoProfile -Command "Get-Content -LiteralPath '%DADOS%\logs\servidor.log' -Tail 30 -Encoding UTF8" <nul
+goto fim
+
+rem ------------------------------------------------------------------ 9
+:confiar
+echo Instala a autoridade certificadora do servidor em "Raiz Confiável" deste usuário.
+echo O Windows vai pedir confirmação: clique em Sim.
+%SERVIDOR% confiar-certificado
+if errorlevel 1 (
+    echo Não foi possível instalar. Rode a opção 1 ou 3 antes ^(gera o certificado^).
+) else (
+    echo Pronto. Feche e abra o navegador de novo. No Firefox: Configurações, Privacidade,
+    echo Certificados, "Confiar em autoridades raiz do Windows" ^(ou importe o ca.crt^).
+)
 goto fim
 
 rem ------------------------------------------------------------------ rotinas

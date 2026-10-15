@@ -27,7 +27,6 @@ import time
 from pathlib import Path
 
 PASTA_SERVIDOR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "NFSE_Nacional"
-os.environ.setdefault("NFSE_NACIONAL_DADOS", str(PASTA_SERVIDOR))
 
 from nfse_nacional import VERSAO, cofre  # noqa: E402
 from nfse_nacional.banco import Banco  # noqa: E402
@@ -60,15 +59,7 @@ def _executavel() -> list[str]:
 
 # ------------------------------------------------------------------ HTTPS autoassinado
 
-def certificado_https(pasta: Path) -> tuple[Path, Path]:
-    crt, key = pasta / "servidor.crt", pasta / "servidor.key"
-    if crt.exists() and key.exists():
-        return crt, key
-    from cryptography import x509
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
-    from cryptography.x509.oid import NameOID
-    pasta.mkdir(parents=True, exist_ok=True)
+def _nomes_e_ips() -> tuple[set[str], set[str]]:
     host = socket.gethostname()
     nomes = {host, host.lower(), "localhost"}
     ips = {"127.0.0.1"}
@@ -76,20 +67,117 @@ def certificado_https(pasta: Path) -> tuple[Path, Path]:
         ips.update(socket.gethostbyname_ex(host)[2])
     except OSError:
         pass
-    chave = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    nome = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, f"NFS-e Nacional - {host}")])
+    return nomes, ips
+
+
+def _autoridade(pasta: Path):
+    """Autoridade certificadora própria do servidor (ca.crt é o que cada PC passa a confiar).
+
+    Um certificado autoassinado direto faz o Chrome/Edge mostrar "Sua conexão não é
+    particular" (CertificateAuthorityInvalid) e, com políticas de empresa, nem deixa seguir.
+    Com uma AC local instalada em "Autoridades de Certificação Raiz Confiáveis", o site abre
+    com cadeado. A chave da AC fica só na pasta protegida do servidor.
+    """
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+    ca_crt, ca_key = pasta / "ca.crt", pasta / "ca.key"
+    if ca_crt.exists() and ca_key.exists():
+        return (x509.load_pem_x509_certificate(ca_crt.read_bytes()),
+                serialization.load_pem_private_key(ca_key.read_bytes(), None))
+    chave = rsa.generate_private_key(public_exponent=65537, key_size=3072)
+    nome = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,
+                                         f"NFS-e Nacional - AC local de {socket.gethostname()}"),
+                      x509.NameAttribute(NameOID.ORGANIZATION_NAME, "NFS-e Nacional (uso interno)")])
     agora = dt.datetime.now(dt.timezone.utc)
-    san = [x509.DNSName(n) for n in sorted(nomes)] + [x509.IPAddress(ipaddress.ip_address(i)) for i in sorted(ips)]
+    ski = x509.SubjectKeyIdentifier.from_public_key(chave.public_key())
     cert = (x509.CertificateBuilder().subject_name(nome).issuer_name(nome)
             .public_key(chave.public_key()).serial_number(x509.random_serial_number())
             .not_valid_before(agora - dt.timedelta(days=1)).not_valid_after(agora + dt.timedelta(days=3650))
+            .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+            .add_extension(x509.KeyUsage(digital_signature=False, content_commitment=False,
+                                         key_encipherment=False, data_encipherment=False,
+                                         key_agreement=False, key_cert_sign=True, crl_sign=True,
+                                         encipher_only=False, decipher_only=False), critical=True)
+            .add_extension(ski, critical=False)
+            .sign(chave, hashes.SHA256()))
+    ca_key.write_bytes(chave.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                           serialization.NoEncryption()))
+    ca_crt.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    return cert, chave
+
+
+def _precisa_renovar(crt: Path, ca_crt: Path) -> bool:
+    """Novo certificado se não existe, não foi emitido pela AC atual, vence em 30 dias ou
+    não cobre mais o nome/IP desta máquina (IP mudou)."""
+    from cryptography import x509
+    if not crt.exists():
+        return True
+    try:
+        cert = x509.load_pem_x509_certificate(crt.read_bytes())
+        ca = x509.load_pem_x509_certificate(ca_crt.read_bytes())
+    except (OSError, ValueError):
+        return True
+    if cert.issuer != ca.subject:
+        return True
+    if cert.not_valid_after_utc - dt.datetime.now(dt.timezone.utc) < dt.timedelta(days=30):
+        return True
+    try:
+        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    except x509.ExtensionNotFound:
+        return True
+    nomes, ips = _nomes_e_ips()
+    tem_nomes = set(san.get_values_for_type(x509.DNSName))
+    tem_ips = {str(i) for i in san.get_values_for_type(x509.IPAddress)}
+    return not (nomes <= tem_nomes and ips <= tem_ips)
+
+
+def certificado_https(pasta: Path) -> tuple[Path, Path]:
+    """(servidor.crt, servidor.key) assinados pela AC local; renova sozinho quando preciso."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+    pasta.mkdir(parents=True, exist_ok=True)
+    ca, ca_chave = _autoridade(pasta)
+    crt, key = pasta / "servidor.crt", pasta / "servidor.key"
+    if not _precisa_renovar(crt, pasta / "ca.crt") and key.exists():
+        return crt, key
+    nomes, ips = _nomes_e_ips()
+    chave = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    agora = dt.datetime.now(dt.timezone.utc)
+    san = [x509.DNSName(n) for n in sorted(nomes)] + \
+        [x509.IPAddress(ipaddress.ip_address(i)) for i in sorted(ips)]
+    cert = (x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, socket.gethostname())]))
+            .issuer_name(ca.subject).public_key(chave.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(agora - dt.timedelta(days=1))
+            .not_valid_after(agora + dt.timedelta(days=825))
             .add_extension(x509.SubjectAlternativeName(san), critical=False)
             .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-            .sign(chave, hashes.SHA256()))
+            .add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False,
+                                         key_encipherment=True, data_encipherment=False,
+                                         key_agreement=False, key_cert_sign=False, crl_sign=False,
+                                         encipher_only=False, decipher_only=False), critical=True)
+            .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_chave.public_key()),
+                           critical=False)
+            .sign(ca_chave, hashes.SHA256()))
     key.write_bytes(chave.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                         serialization.NoEncryption()))
-    crt.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    # cadeia: certificado do servidor + AC (o navegador recebe as duas)
+    crt.write_bytes(cert.public_bytes(serialization.Encoding.PEM) + ca.public_bytes(serialization.Encoding.PEM))
+    log.info("certificado HTTPS emitido para %s", ", ".join(sorted(nomes | ips)))
     return crt, key
+
+
+def confiar_neste_pc(pasta: Path) -> int:
+    """Instala a AC local em Raiz Confiável do usuário atual (o Windows pede confirmação)."""
+    certificado_https(pasta)
+    r = subprocess.run(["certutil", "-user", "-addstore", "Root", str(pasta / "ca.crt")])
+    return r.returncode
 
 
 def chave_sessao(pasta: Path) -> str:
@@ -163,7 +251,8 @@ def rodar(porta: int, https: bool):
                         handlers=[logging.FileHandler(pasta / "logs" / "servidor.log", encoding="utf-8"),
                                   logging.StreamHandler()])
     banco = Banco()
-    app = criar_app(banco, https=https, chave_sessao=chave_sessao(pasta))
+    app = criar_app(banco, https=https, chave_sessao=chave_sessao(pasta),
+                    ca_crt=(pasta / "https" / "ca.crt") if https else None)
     iniciar_rotinas(banco)
     kw = {}
     if https:
@@ -253,6 +342,8 @@ def criar_admin(login: str):
 
 
 def main(argv=None) -> int:
+    # Servidor guarda tudo em ProgramData (não no perfil do usuário), salvo se a variável mandar.
+    os.environ.setdefault("NFSE_NACIONAL_DADOS", str(PASTA_SERVIDOR))
     ap = argparse.ArgumentParser(prog="NFSE_Servidor", description=f"NFS-e Nacional {VERSAO} — servidor web interno")
     sub = ap.add_subparsers(dest="cmd")
     p = sub.add_parser("rodar")
@@ -262,6 +353,7 @@ def main(argv=None) -> int:
     p.add_argument("--porta", type=int, default=8443)
     sub.add_parser("remover-servico")
     sub.add_parser("importar-dados-desktop")
+    sub.add_parser("confiar-certificado", help="faz este PC confiar no HTTPS do servidor")
     p = sub.add_parser("criar-admin")
     p.add_argument("login")
     a = ap.parse_args(argv)
@@ -273,6 +365,8 @@ def main(argv=None) -> int:
         remover_servico()
     elif a.cmd == "importar-dados-desktop":
         importar_dados_desktop()
+    elif a.cmd == "confiar-certificado":
+        return confiar_neste_pc(pasta_dados() / "https")
     elif a.cmd == "criar-admin":
         criar_admin(a.login)
     return 0

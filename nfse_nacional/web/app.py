@@ -130,7 +130,8 @@ def fmt_doc(d: str | None) -> str:
 # ====================================================================== aplicação
 
 def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], requests.Session] | None = None,
-              https: bool = False, chave_sessao: str | None = None) -> FastAPI:
+              https: bool = False, chave_sessao: str | None = None,
+              ca_crt: Path | None = None) -> FastAPI:
     banco = banco or Banco()
     cofre.usar_cofre_do_servidor(banco)
     fabrica_sessao = sessao_http or sessao_mtls
@@ -281,6 +282,14 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
         banco.auditar(login, "criar-admin-inicial", ip=ip_de(request))
         flash(request, aviso="Administrador criado. Entre com o login e a senha.")
         return RedirectResponse("/login", status_code=303)
+
+    @app.get("/ca.crt")
+    def baixar_ca():
+        """Certificado PÚBLICO da AC local do servidor, para os PCs da rede confiarem no HTTPS."""
+        if not ca_crt or not Path(ca_crt).exists():
+            return Response(status_code=404)
+        return Response(Path(ca_crt).read_bytes(), media_type="application/x-x509-ca-cert",
+                        headers={"Content-Disposition": 'attachment; filename="NFSe_Nacional_AC.crt"'})
 
     @app.get("/")
     def raiz():

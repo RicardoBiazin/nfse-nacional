@@ -107,8 +107,10 @@ importar dados do desktop, criar administrador e ver o log.
    `NFSE_Servidor.exe importar-dados-desktop` (banco, certificados e senhas → cofre do servidor).
 3. Em um terminal **como administrador**: `NFSE_Servidor.exe instalar-servico` (inicia com o
    Windows, libera a porta 8443 no firewall).
-4. Abra `https://NOME-DO-SERVIDOR:8443`. Na primeira vez cria-se o administrador; o navegador
-   avisa que o certificado HTTPS é autoassinado (aceite uma vez em cada PC).
+4. Faça cada PC confiar no HTTPS do servidor (uma vez): no servidor, `NFSE_Servidor.bat` opção 9;
+   nos outros PCs, `Confiar_no_servidor_NFSe.bat NOME-DO-SERVIDOR` (sem administrador). Sem isso o
+   Chrome/Edge mostram "Sua conexão não é particular".
+   Abra `https://NOME-DO-SERVIDOR:8443`; na primeira vez cria-se o administrador.
 5. Em **Empresa** envie o certificado A1 (se não importou do desktop); em **Usuários** crie as contas.
 
 Papéis: *consulta* (ver e baixar), *emissor* (emitir/duplicar/importar), *admin* (cancelar, empresa,
