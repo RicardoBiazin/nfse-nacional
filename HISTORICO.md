@@ -141,3 +141,11 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   tabela `empresa_tomadores` liga cada tomador às empresas que emitiram para ele (o cadastro do
   tomador continua único por CPF/CNPJ). Desktop e web filtram pela empresa selecionada.
 - Bancos antigos são ligados automaticamente pelas notas emitidas ao abrir o app.
+
+## 0.7.3 — 15/10/2026
+
+- `NFSE_Servidor.bat`: menu da versão web (iniciar nesta janela, abrir no navegador, instalar e
+  remover o serviço com elevação automática para administrador, situação do serviço e da porta,
+  importar dados do desktop, criar/redefinir administrador, ver o log). Aceita a opção por
+  argumento (`NFSE_Servidor.bat 5`) e a porta pela variável `NFSE_PORTA`. Fica ao lado do
+  `NFSE_Servidor.exe` (ou usa o `.venv` na pasta do código). `.gitattributes` força CRLF em `.bat`.

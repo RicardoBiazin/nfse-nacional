@@ -98,6 +98,10 @@ se a Sefin confirmar que ela não existe. Número de DPS reservado nunca é reut
 
 Um PC/servidor da rede roda `NFSE_Servidor.exe`; os demais acessam pelo navegador.
 
+**Atalho:** `NFSE_Servidor.bat` (ao lado do `.exe`) tem um menu com todas as operações abaixo —
+iniciar, abrir no navegador, instalar/remover o serviço (pede administrador sozinho), situação,
+importar dados do desktop, criar administrador e ver o log.
+
 1. Copie `dist_unico\NFSE_Servidor.exe` para o servidor (ex.: `C:\NFSE\`).
 2. Opcional — trazer os dados do desktop **deste mesmo usuário/PC**:
    `NFSE_Servidor.exe importar-dados-desktop` (banco, certificados e senhas → cofre do servidor).
