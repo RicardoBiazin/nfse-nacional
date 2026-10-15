@@ -42,6 +42,8 @@ class AbaEmitir(QWidget):
         super().__init__(pai)
         self.banco = banco
         self.obter_emissor = obter_emissor          # () -> Emissor | None
+        self.obter_empresa = None                   # () -> Empresa | None (definido pela janela)
+        self._empresa_atual = None
 
         # ---- tomador
         g_tom = QGroupBox("Tomador")
@@ -153,7 +155,8 @@ class AbaEmitir(QWidget):
         texto = self.busca_tom.currentText()
         self.busca_tom.blockSignals(True)
         self.busca_tom.clear()
-        for t in self.banco.tomadores():
+        e = self.obter_empresa() if self.obter_empresa else self._empresa_atual
+        for t in (self.banco.tomadores(empresa_id=e.id) if e else []):
             self.busca_tom.addItem(f"{t.nome} — {_doc_fmt(t.documento)}", t.documento)
         self.busca_tom.setCurrentIndex(-1)
         self.busca_tom.setEditText(texto)

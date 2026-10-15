@@ -74,6 +74,11 @@ CREATE TABLE IF NOT EXISTS auditoria (
     chave TEXT,
     ip TEXT
 );
+CREATE TABLE IF NOT EXISTS empresa_tomadores (
+    empresa_id INTEGER NOT NULL,
+    documento TEXT NOT NULL,
+    PRIMARY KEY (empresa_id, documento)
+);
 CREATE TABLE IF NOT EXISTS tomadores (
     id INTEGER PRIMARY KEY,
     documento TEXT NOT NULL UNIQUE,
@@ -232,6 +237,12 @@ class Banco:
         self.con = _ConexaoSegura(self.caminho)
         self.con.execute("PRAGMA journal_mode=WAL")
         self.con.executescript(ESQUEMA)
+        # Até a 0.7.1 a lista de tomadores era única para todas as empresas: liga cada
+        # tomador às empresas que já emitiram nota para ele.
+        self.con.execute(
+            "INSERT OR IGNORE INTO empresa_tomadores (empresa_id, documento) "
+            "SELECT DISTINCT empresa_id, tomador_doc FROM notas "
+            "WHERE origem='emitida' AND COALESCE(tomador_doc, '') <> ''")
 
     def fechar(self):
         self.con.close()
@@ -355,7 +366,8 @@ class Banco:
                     self.con.execute("UPDATE empresas SET cert_arquivo='' WHERE id=?", (empresa_id,))
 
     # ------------------------------------------------------------ tomadores
-    def salvar_tomador(self, t: Tomador) -> Tomador:
+    def salvar_tomador(self, t: Tomador, empresa_id: int | None = None) -> Tomador:
+        """Grava o tomador (um registro por CPF/CNPJ) e o liga à empresa, se informada."""
         dados = asdict(t)
         dados.pop("id")
         colunas = ", ".join(dados)
@@ -364,17 +376,30 @@ class Banco:
         self.con.execute(
             f"INSERT INTO tomadores ({colunas}) VALUES ({marcas}) "
             f"ON CONFLICT(documento) DO UPDATE SET {atualiza}", dados)
+        if empresa_id is not None:
+            self.ligar_tomador(empresa_id, t.documento)
         return self.tomador(t.documento)
+
+    def ligar_tomador(self, empresa_id: int, documento: str):
+        self.con.execute("INSERT OR IGNORE INTO empresa_tomadores (empresa_id, documento) "
+                         "VALUES (?, ?)", (empresa_id, documento))
 
     def tomador(self, documento: str) -> Tomador | None:
         r = self.con.execute("SELECT * FROM tomadores WHERE documento=?", (documento,)).fetchone()
         return _de_linha(Tomador, r) if r else None
 
-    def tomadores(self, filtro: str = "") -> list[Tomador]:
+    def tomadores(self, filtro: str = "", empresa_id: int | None = None) -> list[Tomador]:
+        """Tomadores (de uma empresa, se informada) cujo nome ou documento contém o filtro."""
         f = f"%{filtro}%"
-        return [_de_linha(Tomador, r) for r in self.con.execute(
-            "SELECT * FROM tomadores WHERE nome LIKE ? OR documento LIKE ? ORDER BY nome",
-            (f, f))]
+        if empresa_id is None:
+            sql, args = ("SELECT * FROM tomadores WHERE (nome LIKE ? OR documento LIKE ?) "
+                         "ORDER BY nome", (f, f))
+        else:
+            sql, args = ("SELECT t.* FROM tomadores t JOIN empresa_tomadores et "
+                         "ON et.documento = t.documento AND et.empresa_id = ? "
+                         "WHERE (t.nome LIKE ? OR t.documento LIKE ?) ORDER BY t.nome",
+                         (empresa_id, f, f))
+        return [_de_linha(Tomador, r) for r in self.con.execute(sql, args)]
 
     # ------------------------------------------------------------ numeração
     def reservar_numero(self, empresa_id: int, ambiente: str, serie: str) -> int:

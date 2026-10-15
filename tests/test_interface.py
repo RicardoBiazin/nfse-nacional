@@ -10,7 +10,7 @@ import keyring  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from nfse_nacional import cofre  # noqa: E402
-from nfse_nacional.banco import Banco, Empresa  # noqa: E402
+from nfse_nacional.banco import Banco, Empresa, Tomador  # noqa: E402
 
 from .conftest import CNPJ, SENHA  # noqa: E402
 from .test_cli import CofreMemoria  # noqa: E402
@@ -259,3 +259,21 @@ def test_percentual_simples_por_nota_vira_padrao(janela):
     assert dps.findtext(".//{%s}pTotTribSN" % NS_NFSE) == "8.47"
     assert janela.banco.empresa_por_cnpj(CNPJ).p_tot_sn == "8.47"
     assert a.p_sn.text() == "8,47"                      # próxima nota já vem com o novo padrão
+
+
+def test_busca_de_tomador_so_da_empresa_selecionada(janela):
+    from nfse_nacional.banco import Empresa
+    b = janela.banco
+    e1 = janela._empresa_atual()
+    e2 = b.salvar_empresa(Empresa(cnpj="99888777000166", razao="OUTRA EMPRESA", c_mun="4205407"))
+    b.salvar_tomador(Tomador(documento="11111111000191", nome="SÓ DA PRIMEIRA"), e1.id)
+    b.salvar_tomador(Tomador(documento="22222222000191", nome="SÓ DA OUTRA"), e2.id)
+    janela._carregar_empresas(e1.id)
+    a = janela.aba_emitir
+    a._atualizar_completer()
+    itens = [a.busca_tom.itemText(i) for i in range(a.busca_tom.count())]
+    assert any("PRIMEIRA" in x for x in itens) and not any("OUTRA" in x for x in itens)
+    janela._carregar_empresas(e2.id)
+    a._atualizar_completer()
+    itens = [a.busca_tom.itemText(i) for i in range(a.busca_tom.count())]
+    assert any("SÓ DA OUTRA" in x for x in itens) and not any("PRIMEIRA" in x for x in itens)

@@ -526,7 +526,7 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
     def _tela_emitir(request, u, e, f, erros=None, resultado=None, status=200):
         regra = _regra_aliquota(e, f.get("trib_issqn", "1"), f.get("tp_ret_issqn", "1"))
         return pagina(request, "emitir.html", u, f=f, erros=erros or [], resultado=resultado,
-                      regra=regra, tomadores=banco.tomadores(), status=status)
+                      regra=regra, tomadores=banco.tomadores(empresa_id=e.id), status=status)
 
     @app.get("/emitir", response_class=HTMLResponse)
     def emitir_form(request: Request, duplicar: int | None = None, repetir: str = "",

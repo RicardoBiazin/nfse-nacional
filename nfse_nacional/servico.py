@@ -120,9 +120,13 @@ def tomadores_de_notas(banco: Banco, empresa_id: int) -> int:
             tom = dados_de_xml(xml).tomador
         except Exception:      # noqa: BLE001 - XML estranho não impede o resto
             continue
-        if tom and not banco.tomador(tom.documento):
-            banco.salvar_tomador(tom)
+        if not tom:
+            continue
+        if not banco.tomador(tom.documento):
+            banco.salvar_tomador(tom, empresa_id)
             n += 1
+        else:
+            banco.ligar_tomador(empresa_id, tom.documento)
     return n
 
 
@@ -308,7 +312,7 @@ class Emissor:
         dps = self.montar_dps(dados, n)
         xml = self.preparar(dps)
         if dados.tomador and so_digitos(dados.tomador.documento):
-            self.banco.salvar_tomador(dados.tomador)
+            self.banco.salvar_tomador(dados.tomador, e.id)
         nota_id = self.banco.inserir_nota(
             empresa_id=e.id, ambiente=e.ambiente, origem="emitida", situacao="pendente",
             serie=e.serie, n_dps=n, id_dps=dps.id,
@@ -423,7 +427,9 @@ class Emissor:
             if origem == "emitida":
                 tom = dados_de_xml(xml).tomador
                 if tom and not self.banco.tomador(tom.documento):
-                    self.banco.salvar_tomador(tom)
+                    self.banco.salvar_tomador(tom, e.id)
+                elif tom:
+                    self.banco.ligar_tomador(e.id, tom.documento)
             # Nota nossa que ficou 'indefinida' ainda não tem chave: casa pelo Id da DPS.
             existente = self.banco.nota_por_chave(r.chave) or (
                 self.banco.con.execute(

@@ -41,6 +41,7 @@ class Janela(QMainWindow):
         self.aba_notas = AbaNotas(self.banco, self.emissor, self._empresa_atual)
         self.aba_emitir.emitida.connect(
             lambda: self.aba_notas.mostrar_ambiente(self._empresa_atual().ambiente))
+        self.aba_emitir.obter_empresa = self._empresa_atual   # busca de tomador por empresa
         self.aba_notas.duplicar.connect(self._duplicar)
         self.abas.addTab(self.aba_emitir, "Emitir NFS-e")
         self.abas.addTab(self.aba_notas, "Notas")

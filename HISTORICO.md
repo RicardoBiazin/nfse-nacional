@@ -134,3 +134,10 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   real: Florianópolis com convênio ativo e ISS de 2,00% para o serviço 01.06.01.
 - A consulta marca o convênio como Ativo/Inativo e preenche a "Alíquota ISS padrão" com a do
   município (usada só quando a regra exige, como na retenção pelo tomador).
+
+## 0.7.2 — 15/10/2026
+
+- **Busca de tomador por empresa:** a lista mostrava os tomadores de todas as empresas. Nova
+  tabela `empresa_tomadores` liga cada tomador às empresas que emitiram para ele (o cadastro do
+  tomador continua único por CPF/CNPJ). Desktop e web filtram pela empresa selecionada.
+- Bancos antigos são ligados automaticamente pelas notas emitidas ao abrir o app.

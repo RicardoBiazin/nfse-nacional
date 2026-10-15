@@ -250,3 +250,36 @@ def test_me_epp_vai_com_piscofins_como_o_portal(banco, empresa, certificado):
     pc = raiz.find(".//n:tribFed/n:piscofins", N)
     assert pc.findtext("n:CST", namespaces=N) == "00"
     assert pc.findtext("n:tpRetPisCofins", namespaces=N) == "0"
+
+
+def test_tomadores_separados_por_empresa(banco, empresa, certificado):
+    """Regressão (0.7.1): a busca de tomador listava os tomadores de todas as empresas."""
+    from nfse_nacional.banco import Empresa
+    outra = banco.salvar_empresa(Empresa(cnpj="99888777000166", razao="OUTRA"))
+    banco.salvar_tomador(Tomador(documento="11111111000191", nome="CLIENTE DA PRIMEIRA"), empresa.id)
+    banco.salvar_tomador(Tomador(documento="22222222000191", nome="CLIENTE DA OUTRA"), outra.id)
+    banco.salvar_tomador(Tomador(documento="33333333000191", nome="CLIENTE DAS DUAS"), empresa.id)
+    banco.ligar_tomador(outra.id, "33333333000191")
+    nomes = lambda e: [t.nome for t in banco.tomadores(empresa_id=e.id)]   # noqa: E731
+    assert nomes(empresa) == ["CLIENTE DA PRIMEIRA", "CLIENTE DAS DUAS"]
+    assert nomes(outra) == ["CLIENTE DA OUTRA", "CLIENTE DAS DUAS"]
+    assert len(banco.tomadores()) == 3                     # sem empresa: todos (uso interno)
+    # emitir liga o tomador à empresa que emitiu
+    s = SessaoFalsa(); s.rota("POST", r"/nfse$", _emissao_ok)
+    Emissor(banco, empresa, certificado, sessao=s).emitir(dados())
+    assert "Fulano de Tal" in nomes(empresa) and "Fulano de Tal" not in nomes(outra)
+
+
+def test_ligacao_recuperada_das_notas_antigas(tmp_path):
+    """Banco da 0.7.1 (sem empresa_tomadores): ao abrir, liga pelos tomadores das notas emitidas."""
+    from nfse_nacional.banco import Banco, Empresa
+    b = Banco(tmp_path / "antigo.db")
+    e = b.salvar_empresa(Empresa(cnpj=CNPJ))
+    b.salvar_tomador(Tomador(documento="11444777000161", nome="CLIENTE"))      # sem empresa
+    b.inserir_nota(empresa_id=e.id, ambiente="producao", origem="emitida", situacao="autorizada",
+                   tomador_doc="11444777000161", tomador_nome="CLIENTE")
+    b.con.execute("DELETE FROM empresa_tomadores")
+    b.fechar()
+    b2 = Banco(tmp_path / "antigo.db")
+    assert [t.nome for t in b2.tomadores(empresa_id=e.id)] == ["CLIENTE"]
+    b2.fechar()
