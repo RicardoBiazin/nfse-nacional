@@ -22,8 +22,16 @@ Nacional e no ADN. Python 3.13, venv em `.venv`.
 - `regras.py` RNs do Anexo I checadas antes do envio
 - `schemas/` XSDs oficiais v1.01 (não editar à mão; as âncoras `^$` são tratadas no carregamento)
 
+## Versão web (`web/`)
+
+- `cd web; npm test; npm run build; netlify deploy --build --prod` (site Netlify `nfse-nacional`,
+  domínio nfse.biazin.com.br). `src/danfse.js` é porte de `danfse.py`: mudou um, mude o outro.
+- Portão anti-robô copiado do EditPDFree (`src/portao/`, `netlify/edge-functions/portao.ts`).
+
 ## Regras do projeto
 
+- Repositório PÚBLICO (AGPL-3.0). Testes e exemplos só com dados fictícios; nada de CNPJ, valor
+  ou nome real de cliente (o histórico foi reescrito em 21/10/2026 para tirar isso).
 - Versão em `nfse_nacional/__init__.py` (`VERSAO`): incrementar a cada alteração publicada.
 - Nunca versionar `.pfx/.p12/.pem`, `.db`, nem `docs_ref/` (material baixado do gov.br).
 - Não trocar `_c14n()` de `assinatura.py` por `tostring(el, method="c14n")` direto: o lxml gera

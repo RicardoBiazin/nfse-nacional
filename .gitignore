@@ -26,3 +26,14 @@ __pycache__/
 build/
 dist/
 dist_unico/
+
+# Local Netlify folder
+.netlify
+
+# Versão web (web/)
+web/node_modules/
+web/dist/
+web/.netlify/
+web/public/dados/
+web/public/logo_nfse.png
+web/public/icone.png

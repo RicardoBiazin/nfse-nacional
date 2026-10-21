@@ -1,0 +1,27 @@
+{
+  "name": "nfse-nacional-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NFS-e Nacional no navegador: DANFSe a partir do XML, leitura de XML e consulta de códigos. Nada sai do navegador.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dados": "node scripts/dados.mjs",
+    "dev": "node scripts/dados.mjs && vite",
+    "build": "node scripts/dados.mjs && vite build",
+    "preview": "vite preview",
+    "test": "node --test \"test/*.test.ts\" \"test/*.test.js\"",
+    "fumaca": "node scripts/fumaca.mjs",
+    "portao:local": "node scripts/servidor-portao.mjs"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "jspdf": "^4.2.1",
+    "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

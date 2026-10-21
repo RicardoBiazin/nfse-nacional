@@ -12,6 +12,42 @@ direto nas APIs do governo, sem provedor intermediário:
 Leiaute **DPS 1.01** (XSD de 09/02/2026, com o grupo IBS/CBS opcional). Começa em
 **Produção Restrita**; produção só por escolha explícita no cadastro da empresa.
 
+| | |
+|---|---|
+| **Download (Windows)** | [Releases](https://github.com/RicardoBiazin/nfse-nacional/releases/latest): `NFSE_Nacional.exe` (desktop), `NFSE_Servidor.exe` + `.bat` (versão para a rede) |
+| **No navegador** | <https://nfse.biazin.com.br> — DANFSe a partir do XML e consulta de códigos, sem enviar arquivo a ninguém |
+| **Licença** | [AGPL-3.0](LICENSE) |
+
+> **Certificado digital:** nunca fica no repositório nem no executável. O `.gitignore` bloqueia
+> `*.pfx`, `*.p12`, `*.pem`, `*.key` e o banco local. No desktop o `.pfx` fica em
+> `%LOCALAPPDATA%\NFSE_Nacional` com a senha no Cofre de Credenciais do Windows; no servidor, em
+> `C:\ProgramData\NFSE_Nacional` com a senha cifrada por DPAPI. Os testes usam certificado
+> autoassinado gerado na hora e dados fictícios.
+
+## Versão para navegador (`web/`)
+
+Site estático (Vite + jsPDF) publicado no Netlify, com **portão anti-robô** próprio (prova de
+trabalho + cookie assinado numa Edge Function, sem serviço de terceiros; o mesmo do EditPDFree):
+
+- **DANFSe do XML:** solte XMLs de NFS-e (ou um .zip); inclua o XML do evento de cancelamento
+  para sair com a marca "CANCELADA"/"SUBSTITUÍDA". Mesmo layout do app (porte de `danfse.py`).
+- **Consultar códigos:** lista de serviços nacional, NBS 2.0 e municípios IBGE.
+- **Nada sai do navegador:** sem banco, sem upload; CSP `connect-src 'self'`.
+
+Emitir nota exige o certificado A1 e mTLS com a Sefin, por isso só existe no programa instalado.
+
+```powershell
+cd web
+npm install
+npm test                      # DANFSe (JS) + portão
+npm run build                 # gera public/dados a partir de ../recursos e o dist/
+npm run portao:local          # serve dist/ atrás do portão, em http://localhost:4181
+netlify deploy --build --prod # publica (variável PORTAO_SEGREDO já definida no site)
+```
+
+Depois que o CNAME `nfse` → `nfse-nacional.netlify.app` existir no DNS, definir
+`REDIRECIONAR_DOMINIO=1` no Netlify para o endereço antigo redirecionar ao oficial.
+
 ## Instalação (desenvolvimento)
 
 ```powershell
@@ -84,8 +120,7 @@ se a Sefin confirmar que ela não existe. Número de DPS reservado nunca é reut
 
 ## Pendências
 
-- Teste ponta a ponta em Produção Restrita com um A1 real (os testes automáticos usam
-  certificado autoassinado e API simulada; o servidor recusa certificado fora da ICP-Brasil).
+- Emissão em produção real ainda não feita pelo app (Produção Restrita testada com A1 real).
 - Substituição de NFS-e pela interface (o modelo `DPS.ch_substituida` já existe).
 - (feito na 0.1.2) Campos JSON do ADN confirmados com o servidor real.
 

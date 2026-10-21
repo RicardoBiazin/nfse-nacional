@@ -162,3 +162,15 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   impressão digital e instala em Raiz Confiável do usuário, sem administrador).
 - Opção 1 do menu abre o navegador sozinha; opção 5 mostra a impressão digital da AC.
 - Novo comando `NFSE_Servidor.exe confiar-certificado`; rota pública `/ca.crt` (só o certificado).
+
+## 0.8.0 — 21/10/2026
+
+- **Repositório público** (AGPL-3.0). Antes, o histórico foi reescrito para trocar dados reais
+  usados nos testes (cliente, CNPJ, endereço e valor) por fictícios; nenhum certificado, chave
+  ou senha jamais foi versionado (conferido em todo o histórico).
+- **Versão para navegador** (`web/`, site `nfse-nacional` no Netlify, domínio nfse.biazin.com.br):
+  DANFSe a partir do XML (porte do `danfse.py` para jsPDF, mesmo layout), marca d'água pelo
+  XML do evento, lote em .zip, consulta de códigos (serviços, NBS, municípios). Nada sai do
+  navegador. Portão anti-robô (prova de trabalho + cookie HMAC) igual ao do EditPDFree.
+- Executáveis publicados em GitHub Releases.
+

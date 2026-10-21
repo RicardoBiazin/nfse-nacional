@@ -1,0 +1,43 @@
+# NFS-e Nacional (web) no Netlify: site estatico + Edge Function do portao anti-robo.
+# O XML nunca passa pelo servidor: tudo roda no navegador.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+# Portao anti-robo: prova de trabalho + cookie assinado (ver README da raiz).
+# Precisa da variavel PORTAO_SEGREDO no Netlify (sem ela o site responde 500 de proposito).
+# REDIRECIONAR_DOMINIO=1 so' depois que o CNAME nfse.biazin.com.br existir.
+[[edge_functions]]
+  function = "portao"
+  path = "/*"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Strict-Transport-Security = "max-age=31536000"
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/dados/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>NFS-e Nacional — DANFSe a partir do XML</title>
+  <meta name="description" content="Gere o DANFSe (PDF) da NFS-e Padrão Nacional a partir do XML, direto no navegador. Nenhum arquivo sai do seu computador.">
+  <link rel="icon" href="/icone.png">
+  <link rel="stylesheet" href="/src/estilo.css">
+</head>
+<body>
+<header class="topo">
+  <a class="marca" href="#danfse"><img src="/icone.png" alt="" width="28" height="28">NFS-e Nacional</a>
+  <nav>
+    <a href="#danfse" data-aba="danfse">DANFSe do XML</a>
+    <a href="#codigos" data-aba="codigos">Consultar códigos</a>
+    <a href="#sobre" data-aba="sobre">Sobre e download</a>
+  </nav>
+  <span class="versao" id="versao"></span>
+</header>
+
+<main>
+  <section id="aba-danfse" class="aba">
+    <h1>DANFSe a partir do XML da NFS-e</h1>
+    <p class="sub">A API de DANFSe do governo foi suspensa (NT 008/2026). Envie o XML da nota e baixe o PDF no
+      padrão oficial. <strong>Tudo acontece no seu navegador: o XML não é enviado para lugar nenhum.</strong></p>
+    <label class="soltar" id="soltar">
+      <input type="file" id="arquivos" accept=".xml,.zip,application/xml,text/xml,application/zip" multiple>
+      <span class="soltar-titulo">Arraste os XMLs aqui ou clique para escolher</span>
+      <span class="soltar-dica">Vários arquivos ou um .zip. Inclua o XML do evento de cancelamento para sair com a marca
+        “CANCELADA”.</span>
+    </label>
+    <div id="mensagens" role="status" aria-live="polite"></div>
+    <div id="resultado" hidden>
+      <div class="acoes">
+        <strong id="contagem"></strong>
+        <label class="opcao"><input type="checkbox" id="canhoto" checked> Incluir canhoto</label>
+        <button id="baixar-todos" class="primario">Baixar todos (.zip)</button>
+        <button id="limpar">Limpar</button>
+      </div>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Nº</th><th>Emissão</th><th>Prestador</th><th>Tomador</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead>
+          <tbody id="linhas"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="aba-codigos" class="aba" hidden>
+    <h1>Consultar códigos</h1>
+    <p class="sub">Tabelas oficiais do Sistema Nacional NFS-e: lista de serviços (código de tributação nacional), NBS 2.0
+      e municípios IBGE. Digite parte do código ou da descrição.</p>
+    <div class="busca">
+      <select id="tabela" aria-label="Tabela">
+        <option value="servicos">Código de tributação nacional</option>
+        <option value="nbs">NBS</option>
+        <option value="municipios">Município (IBGE)</option>
+      </select>
+      <input id="termo" type="search" placeholder="ex.: consultoria, 010601, Florianópolis" autocomplete="off">
+    </div>
+    <p class="mini" id="total-codigos"></p>
+    <ul class="codigos" id="lista-codigos"></ul>
+  </section>
+
+  <section id="aba-sobre" class="aba" hidden>
+    <h1>NFS-e Nacional</h1>
+    <p>Programa gratuito e de código aberto para <strong>emitir e consultar a NFS-e do Padrão Nacional</strong> direto no
+      sistema do governo (Sefin Nacional e ADN), sem provedor intermediário.</p>
+    <div class="cartoes">
+      <div class="cartao">
+        <h2>Programa para Windows</h2>
+        <p>Emite, cancela e consulta notas com o seu certificado A1, sincroniza as notas emitidas e recebidas, gera o
+          DANFSe e exporta XML/PDF/planilha. O certificado fica só no seu computador.</p>
+        <a class="botao primario" href="https://github.com/RicardoBiazin/nfse-nacional/releases/latest" rel="noopener">Baixar para Windows</a>
+      </div>
+      <div class="cartao">
+        <h2>Versão para a rede da empresa</h2>
+        <p>Um computador da empresa vira servidor e as pessoas usam pelo navegador, com login, permissões e auditoria.
+          Vem no mesmo download (NFSE_Servidor).</p>
+        <a class="botao" href="https://github.com/RicardoBiazin/nfse-nacional#vers%C3%A3o-web-uso-interno-na-rede" rel="noopener">Como instalar</a>
+      </div>
+      <div class="cartao">
+        <h2>Código aberto</h2>
+        <p>Licença AGPL-3.0. Leiaute DPS 1.01 validado nos XSDs oficiais e DANFSe conforme a NT 008/2026.</p>
+        <a class="botao" href="https://github.com/RicardoBiazin/nfse-nacional" rel="noopener">Ver no GitHub</a>
+      </div>
+    </div>
+    <h2>Privacidade</h2>
+    <p>Este site não tem banco de dados nem recebe arquivos. Os XMLs são lidos e os PDFs são gerados pelo seu próprio
+      navegador. A emissão de notas exige o certificado digital e por isso só existe no programa instalado.</p>
+  </section>
+</main>
+<footer>NFS-e Nacional · código aberto (AGPL-3.0) · não é um site do governo</footer>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
