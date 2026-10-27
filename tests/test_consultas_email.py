@@ -134,6 +134,8 @@ class SMTPFalso:
         self.tls = True
 
     def login(self, usuario, senha):
+        if senha == "derruba":                 # como o Gmail faz às vezes
+            raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
         if senha != "segredo":
             raise smtplib.SMTPAuthenticationError(535, b"senha errada")
         self.login_feito = usuario
@@ -222,3 +224,12 @@ def test_enviar_sem_configuracao_ou_sem_email(smtp, banco_com_nota):
     msg, _ = smtp.enviados[-1]
     assert msg["Subject"] == "Sua nota 17 {campo_que_nao_existe}"
     assert smtp.instancias[-1].login_feito is None
+
+
+def test_gmail_derrubando_no_login_vira_senha_recusada(smtp):
+    cfg = ConfigEmail(empresa_id=1, host="smtp.gmail.com", porta=587, seguranca="starttls",
+                      usuario="a@exemplo.com", remetente="a@exemplo.com")
+    with pytest.raises(smtplib.SMTPAuthenticationError, match="fechou a conexão"):
+        email_nfse.enviar_teste(cfg, "derruba", "b@exemplo.com")
+    email_nfse.enviar_teste(cfg, " segredo ", "b@exemplo.com")      # espaço colado nas pontas
+    assert smtp.instancias[-1].login_feito == "a@exemplo.com"

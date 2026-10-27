@@ -106,7 +106,14 @@ def enviar(cfg: ConfigEmail, senha: str | None, msg: EmailMessage, para: list[st
             smtp.starttls(context=contexto)
             smtp.ehlo()
         if cfg.usuario:
-            smtp.login(cfg.usuario, senha or "")
+            try:
+                smtp.login(cfg.usuario, (senha or "").strip())
+            except smtplib.SMTPServerDisconnected:
+                # O Gmail às vezes derruba a conexão em vez de responder 535 (senha recusada
+                # ou muitas tentativas erradas seguidas do mesmo IP).
+                raise smtplib.SMTPAuthenticationError(
+                    535, "o servidor fechou a conexão ao receber usuário e senha "
+                         "(senha recusada ou bloqueio temporário por tentativas erradas)") from None
         smtp.send_message(msg, to_addrs=list(para) + list(copia_oculta))
 
 

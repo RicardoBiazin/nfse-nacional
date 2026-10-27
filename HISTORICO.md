@@ -175,6 +175,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.3 — 27/10/2026
+
+- Gmail derrubando a conexão no login (`SMTPServerDisconnected: Connection unexpectedly closed`)
+  agora aparece como senha recusada, com a dica da senha de app; espaços nas pontas da senha
+  são ignorados.
+
 ## 0.9.2 — 27/10/2026
 
 - O programa fechou sozinho uma vez no "Enviar e-mail de teste" (queda nativa 0xc0000409, sem
