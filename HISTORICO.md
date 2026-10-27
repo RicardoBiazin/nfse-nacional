@@ -175,6 +175,11 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.4 — 27/10/2026
+
+- Porta e segurança do e-mail trocadas (SSL/TLS na 587, STARTTLS na 465) davam`n  `[SSL: WRONG_VERSION_NUMBER]`: agora o envio avisa o par certo antes de conectar, a tela de
+  empresa valida ao salvar e trocar a Segurança ajusta a porta.
+
 ## 0.9.3 — 27/10/2026
 
 - Gmail derrubando a conexão no login (`SMTPServerDisconnected: Connection unexpectedly closed`)

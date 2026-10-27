@@ -95,6 +95,12 @@ def enviar(cfg: ConfigEmail, senha: str | None, msg: EmailMessage, para: list[st
     if not cfg.configurado:
         raise ValueError("Configure o envio de e-mail (servidor SMTP e remetente) em "
                          "'Configurar empresa' > E-mail.")
+    if (cfg.seguranca, cfg.porta) in (("ssl", 587), ("starttls", 465)):
+        # Combinação trocada: o servidor responde em texto e o TLS falha com
+        # "[SSL: WRONG_VERSION_NUMBER]", que não diz nada ao usuário.
+        certo = "STARTTLS" if cfg.porta == 587 else "SSL/TLS"
+        raise ValueError(f"Porta {cfg.porta} usa segurança {certo}. Troque a Segurança para "
+                         f"{certo} (ou a porta para {465 if cfg.porta == 587 else 587}).")
     contexto = ssl.create_default_context()
     if cfg.seguranca == "ssl":
         smtp = smtplib.SMTP_SSL(cfg.host, cfg.porta or 465, timeout=30, context=contexto)

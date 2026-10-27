@@ -150,6 +150,7 @@ class DialogoEmpresa(QDialog):
         self.smtp_host = QLineEdit(c.host); self.smtp_host.setPlaceholderText("ex.: smtp.gmail.com")
         self.smtp_porta = QSpinBox(); self.smtp_porta.setRange(1, 65535); self.smtp_porta.setValue(c.porta or 587)
         self.smtp_seg = combo(SEGURANCA, c.seguranca)
+        self.smtp_seg.currentIndexChanged.connect(self._porta_da_seguranca)
         self.smtp_usuario = QLineEdit(c.usuario); self.smtp_usuario.setPlaceholderText("normalmente o próprio e-mail")
         self.smtp_senha = QLineEdit(); self.smtp_senha.setEchoMode(QLineEdit.EchoMode.Password)
         guardada = bool(self.e.id and email_nfse.senha_smtp(self.e.id))
@@ -375,6 +376,12 @@ class DialogoEmpresa(QDialog):
         if not self.smtp_usuario.text().strip():
             self.smtp_usuario.setText(self.smtp_rem.text().strip())
 
+    def _porta_da_seguranca(self):
+        """SSL/TLS anda com a 465 e STARTTLS com a 587: trocar um troca o outro."""
+        par = {"ssl": (587, 465), "starttls": (465, 587)}.get(self.smtp_seg.currentData())
+        if par and self.smtp_porta.value() == par[0]:
+            self.smtp_porta.setValue(par[1])
+
     def _coletar_email(self, empresa_id: int) -> ConfigEmail:
         return ConfigEmail(
             empresa_id=empresa_id, host=self.smtp_host.text().strip(), porta=self.smtp_porta.value(),
@@ -395,6 +402,8 @@ class DialogoEmpresa(QDialog):
             email_nfse.separar_enderecos(cfg.copia)
         except ValueError as erro:
             return f"E-mail: {erro}"
+        if (cfg.seguranca, cfg.porta) in (("ssl", 587), ("starttls", 465)):
+            return "E-mail: porta 587 usa STARTTLS e porta 465 usa SSL/TLS."
         return ""
 
     def _testar_email(self):

@@ -233,3 +233,11 @@ def test_gmail_derrubando_no_login_vira_senha_recusada(smtp):
         email_nfse.enviar_teste(cfg, "derruba", "b@exemplo.com")
     email_nfse.enviar_teste(cfg, " segredo ", "b@exemplo.com")      # espaço colado nas pontas
     assert smtp.instancias[-1].login_feito == "a@exemplo.com"
+
+
+def test_porta_e_seguranca_trocadas_dao_mensagem_clara(smtp):
+    cfg = ConfigEmail(empresa_id=1, host="smtp-relay.gmail.com", porta=587, seguranca="ssl",
+                      remetente="a@exemplo.com")
+    with pytest.raises(ValueError, match="STARTTLS"):
+        email_nfse.enviar_teste(cfg, None, "b@exemplo.com")
+    assert not smtp.instancias                      # nem tentou conectar
