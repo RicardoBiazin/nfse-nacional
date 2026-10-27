@@ -163,7 +163,8 @@ class DialogoEmpresa(QDialog):
         self.smtp_auto = QCheckBox("Marcar 'Enviar por e-mail ao tomador' ao emitir")
         self.smtp_auto.setChecked(bool(c.enviar_auto))
         self.rot_provedor = QLabel(); self.rot_provedor.setWordWrap(True)
-        bt_teste = QPushButton("Enviar e-mail de teste…")
+        self.bt_teste = bt_teste = QPushButton("Enviar e-mail de teste…")
+        bt_teste.setAutoDefault(False)          # Enter num campo não dispara o teste
         bt_teste.clicked.connect(self._testar_email)
         f.addRow("Provedor", self.provedor)
         f.addRow("", self.rot_provedor)
@@ -408,9 +409,21 @@ class DialogoEmpresa(QDialog):
         if not ok or not para.strip():
             return
         senha = self.smtp_senha.text() or (email_nfse.senha_smtp(self.e.id) if self.e.id else None)
-        em_segundo_plano(lambda: email_nfse.enviar_teste(cfg, senha, para),
-                         lambda _r: QMessageBox.information(self, "E-mail", f"Teste enviado para {para}."),
-                         lambda e: mostrar_erro(self, e, "Teste de e-mail"))
+        self.bt_teste.setEnabled(False)
+        self.bt_teste.setText("Enviando teste…")
+
+        def pronto():
+            self.bt_teste.setEnabled(True)
+            self.bt_teste.setText("Enviar e-mail de teste…")
+
+        def ok(_r):
+            pronto()
+            QMessageBox.information(self, "E-mail", f"Teste enviado para {para}.")
+
+        def falhou(e):
+            pronto()
+            mostrar_erro(self, e, "Teste de e-mail")
+        em_segundo_plano(lambda: email_nfse.enviar_teste(cfg, senha, para), ok, falhou)
 
     def _abrir_existente(self, cnpj: str) -> bool:
         """'Nova empresa' com um CNPJ já cadastrado: carrega o cadastro existente na tela

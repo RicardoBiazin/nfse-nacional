@@ -175,6 +175,14 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.2 — 27/10/2026
+
+- O programa fechou sozinho uma vez no "Enviar e-mail de teste" (queda nativa 0xc0000409, sem
+  mensagem). Não reproduziu em teste (Gmail real com usuário errado, SMTP local aceitando, envio
+  de nota): agora o desktop grava `falhas.log` na pasta de dados (erro sem tratamento e queda do
+  processo, com a pilha de todas as threads) para achar a causa se voltar a acontecer.
+- Botão de teste fica desabilitado ("Enviando teste…") até o resultado; não dispara com Enter.
+- Erro de e-mail com mensagem clara: usuário/senha recusados lembram da "senha de app".
 ## 0.9.0 — 27/10/2026
 
 - **Consulta de CNPJ** no tomador (desktop e web): razão social, endereço, telefone e e-mail da

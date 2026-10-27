@@ -141,7 +141,35 @@ def icone() -> QIcon:
     return QIcon(str(pasta_base() / "recursos" / "icone.png"))
 
 
+def registrar_falhas(pasta=None):
+    """O .exe não tem console: erro sem tratamento e queda do processo iam para lugar nenhum.
+    Agora vão para falhas.log na pasta de dados (o usuário manda o arquivo junto com o relato)."""
+    import datetime as dt
+    import faulthandler
+    import threading
+    import traceback
+    from ..config import pasta_dados
+    caminho = (pasta or pasta_dados()) / "falhas.log"
+    try:
+        grande = caminho.exists() and caminho.stat().st_size > 512_000
+        log = open(caminho, "w" if grande else "a", encoding="utf-8")
+    except OSError:
+        return None
+    log.write(f"\n=== {dt.datetime.now():%Y-%m-%d %H:%M:%S} aberto NFS-e Nacional {VERSAO}\n")
+    log.flush()
+    faulthandler.enable(log, all_threads=True)
+
+    def gancho(tipo, valor, tb):
+        log.write(f"--- {dt.datetime.now():%Y-%m-%d %H:%M:%S} erro sem tratamento\n")
+        traceback.print_exception(tipo, valor, tb, file=log)
+        log.flush()
+    sys.excepthook = gancho
+    threading.excepthook = lambda a: gancho(a.exc_type, a.exc_value, a.exc_traceback)
+    return caminho
+
+
 def executar() -> int:
+    registrar_falhas()
     if sys.platform == "win32":
         # Sem um AppUserModelID próprio a barra de tarefas agrupa sob o python.exe e mostra o ícone dele.
         import ctypes

@@ -1,6 +1,7 @@
 """Peças compartilhadas da interface: execução em segundo plano e formatação."""
 from __future__ import annotations
 
+import smtplib
 import traceback
 from decimal import Decimal, InvalidOperation
 
@@ -71,6 +72,12 @@ def texto_erro(erro: Exception) -> str:
     if isinstance(erro, requests.exceptions.SSLError):
         return ("Falha na conexão segura. O servidor recusou o certificado: use um A1 "
                 "ICP-Brasil válido do CNPJ da empresa.\n\n" + str(erro)[:300])
+    if isinstance(erro, smtplib.SMTPAuthenticationError):
+        return ("O servidor de e-mail recusou usuário/senha. Gmail, Yahoo e Microsoft com "
+                "verificação em duas etapas exigem uma \"senha de app\", não a senha normal.\n\n"
+                + str(erro)[:300])
+    if isinstance(erro, smtplib.SMTPException):
+        return f"Falha no envio de e-mail (confira servidor, porta e segurança):\n\n{erro}"
     if isinstance(erro, requests.RequestException):
         return f"Falha de comunicação com o sistema nacional:\n\n{erro}"
     return str(erro) or erro.__class__.__name__

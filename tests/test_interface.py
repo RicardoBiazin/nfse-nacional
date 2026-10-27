@@ -344,3 +344,27 @@ def test_email_configurado_na_empresa_e_enviado_pela_aba_notas(janela, monkeypat
     from nfse_nacional.interface.aba_notas import COLUNAS
     col = [c[0] for c in COLUNAS].index("E-mail")
     assert notas.tabela.item(0, col).text().startswith("enviado")
+
+
+def test_falhas_vao_para_o_log_e_smtp_tem_mensagem_clara(tmp_path, monkeypatch):
+    import faulthandler
+    import smtplib
+    import sys
+    import threading
+
+    from nfse_nacional.interface.comum import texto_erro
+    from nfse_nacional.interface.janela import registrar_falhas
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)
+    monkeypatch.setattr(threading, "excepthook", threading.excepthook)
+    caminho = registrar_falhas(tmp_path)
+    try:
+        try:
+            raise RuntimeError("quebrou no slot")
+        except RuntimeError:
+            sys.excepthook(*sys.exc_info())
+    finally:
+        faulthandler.disable()
+    texto = caminho.read_text(encoding="utf-8")
+    assert "aberto NFS-e Nacional" in texto and "quebrou no slot" in texto
+    assert "senha de app" in texto_erro(smtplib.SMTPAuthenticationError(535, b"bad"))
+    assert "envio de e-mail" in texto_erro(smtplib.SMTPServerDisconnected("caiu"))
