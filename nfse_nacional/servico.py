@@ -289,7 +289,7 @@ class Emissor:
         conv = None if self.empresa.convenio_ativo is None else bool(self.empresa.convenio_ativo)
         erros = regras.validar_negocio(dps, conv)
         if not self.empresa.c_mun:
-            erros.append("Cadastre o município (IBGE) da empresa.")
+            erros.append("Cadastre o município (IBGE) da empresa em 'Configurar empresa' > Identificação.")
         if not so_digitos(dps.servico.c_trib_nac):
             erros.append("Informe o código de tributação nacional (cTribNac).")
         if erros:

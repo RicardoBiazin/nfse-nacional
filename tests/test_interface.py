@@ -277,3 +277,70 @@ def test_busca_de_tomador_so_da_empresa_selecionada(janela):
     a._atualizar_completer()
     itens = [a.busca_tom.itemText(i) for i in range(a.busca_tom.count())]
     assert any("SÓ DA OUTRA" in x for x in itens) and not any("PRIMEIRA" in x for x in itens)
+
+
+def _esperar():
+    from PySide6.QtCore import QThreadPool
+    QThreadPool.globalInstance().waitForDone(10000)
+    QApplication.processEvents()
+
+
+def test_cep_e_cnpj_preenchem_o_tomador(janela, monkeypatch):
+    from nfse_nacional import consultas
+
+    from .test_consultas_email import BRASILAPI, VIACEP, Rede, Resp
+    rede = Rede({"brasilapi.com.br/api/cnpj": Resp(200, BRASILAPI), "viacep": Resp(200, VIACEP)})
+    monkeypatch.setattr(consultas, "_get", lambda url, sessao=None: rede.get(url))
+    a = janela.aba_emitir
+    a.t_cep.setText("88020-010"); a.t_cep.editingFinished.emit(); _esperar()
+    assert (a.t_lgr.text(), a.t_bairro.text(), a.t_cmun.text()) == ("Rua Emílio Blum", "Centro", "4205407")
+    n = len(rede.chamadas)
+    a.t_cep.editingFinished.emit(); _esperar()
+    assert len(rede.chamadas) == n                     # mesmo CEP não consulta de novo
+    a.limpar()
+    a.t_doc.setText("11444777000161"); a.t_doc.editingFinished.emit(); _esperar()   # CNPJ novo: automático
+    assert a.t_nome.text() == "CLIENTE EXEMPLO SERVICOS LTDA"
+    assert (a.t_nro.text(), a.t_fone.text(), a.t_lgr.text()) == ("121", "4830001234", "Rua Emílio Blum")
+
+
+def test_email_configurado_na_empresa_e_enviado_pela_aba_notas(janela, monkeypatch, tmp_path):
+    import smtplib
+
+    from nfse_nacional import email_nfse
+    from nfse_nacional.interface.dialogo_empresa import DialogoEmpresa
+
+    from .test_consultas_email import SMTPFalso
+    from .test_danfse import _nfse
+    SMTPFalso.enviados, SMTPFalso.instancias = [], []
+    monkeypatch.setattr(smtplib, "SMTP", SMTPFalso)
+    b = janela.banco
+    e = b.empresas()[0]
+    d = DialogoEmpresa(b, e)
+    d.provedor.setCurrentIndex(1)                       # Gmail
+    assert d.smtp_host.text() == "smtp.gmail.com" and d.smtp_porta.value() == 587
+    d.smtp_rem.setText("nfe@exemplo.com.br"); d.smtp_usuario.setText("nfe@exemplo.com.br")
+    d.smtp_senha.setText("segredo"); d.smtp_auto.setChecked(True)
+    d._salvar()
+    cfg = b.config_email(e.id)
+    assert cfg.configurado and cfg.enviar_auto and cfg.corpo == ""     # corpo padrão não é gravado
+    assert email_nfse.senha_smtp(e.id) == "segredo"
+    janela.aba_emitir.preencher_padroes(janela.emissor())
+    assert janela.aba_emitir.enviar_email.isEnabled() and janela.aba_emitir.enviar_email.isChecked()
+
+    b.salvar_tomador(Tomador(documento="11444777000161", nome="CLIENTE EXEMPLO",
+                             email="cliente@exemplo.com.br"), e.id)
+    b.inserir_nota(empresa_id=e.id, ambiente="producao", origem="emitida", situacao="autorizada",
+                   chave="4" * 50, numero="17", d_compet="2026-09-01", tomador_doc="11444777000161",
+                   tomador_nome="CLIENTE EXEMPLO", v_serv="1500.00", nfse_xml=_nfse())
+    notas = janela.aba_notas
+    notas.inicio.setDate(notas.inicio.date().addYears(-1))
+    notas.recarregar()
+    notas.tabela.selectAll()
+    from PySide6.QtWidgets import QDialog
+    monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
+    notas._enviar_email()
+    _esperar()
+    assert SMTPFalso.enviados[-1][1] == ["cliente@exemplo.com.br"]
+    from nfse_nacional.interface.aba_notas import COLUNAS
+    col = [c[0] for c in COLUNAS].index("E-mail")
+    assert notas.tabela.item(0, col).text().startswith("enviado")

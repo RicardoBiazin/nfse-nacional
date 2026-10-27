@@ -67,6 +67,32 @@
 </form>
 <form id="consultar-municipio" method="post" action="/empresa/consultar-municipio"><input type="hidden" name="csrf" value="{{ csrf }}"></form>
 
+<form method="post" action="/empresa/email" class="cartao" id="email">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>E-mail (envio da NFS-e ao tomador)</h2>
+  <p class="mini">O sistema nacional não manda a nota ao cliente: o servidor envia o DANFSe (PDF) e o XML pelo seu e-mail.
+    Gmail e Yahoo exigem "senha de app"; Microsoft 365: smtp.office365.com, porta 587 (SMTP autenticado ligado).
+    A senha fica cifrada neste servidor (DPAPI).</p>
+  <div class="grade">
+    {{ campo('host', 'Servidor SMTP', cfg.host, 'ex.: smtp.gmail.com') }}
+    {{ campo('porta', 'Porta', cfg.porta, '587', 'number') }}
+    {{ escolha('seguranca', 'Segurança', cfg.seguranca, [('starttls','STARTTLS (587)'),('ssl','SSL/TLS (465)'),('nenhuma','Sem criptografia')]) }}
+    {{ campo('usuario', 'Usuário', cfg.usuario, 'normalmente o próprio e-mail') }}
+    {{ campo('senha', 'Senha', '', 'guardada (vazio = manter)' if senha_smtp else 'senha do e-mail ou de app', 'password') }}
+    {{ campo('remetente', 'Remetente (e-mail)', cfg.remetente or empresa.email) }}
+    {{ campo('nome_remetente', 'Nome do remetente', cfg.nome_remetente or empresa.razao) }}
+    {{ campo('copia', 'Cópia oculta', cfg.copia, 'opcional') }}
+    <div class="largo"><label for="assunto">Assunto</label><input id="assunto" name="assunto" value="{{ cfg.assunto }}" placeholder="{{ ASSUNTO_PADRAO }}" {{ '' if pode('admin') else 'disabled' }}></div>
+    <div class="largo"><label for="corpo">Mensagem</label><textarea id="corpo" name="corpo" rows="8" {{ '' if pode('admin') else 'disabled' }}>{{ cfg.corpo or CORPO_PADRAO }}</textarea>
+      <span class="desc">Campos: {{ CAMPOS_EMAIL }}</span></div>
+    <div class="largo"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="enviar_auto" value="1" style="width:auto" {{ 'checked' if cfg.enviar_auto }} {{ '' if pode('admin') else 'disabled' }}>
+      Deixar marcado "Enviar por e-mail ao tomador" na emissão</label></div>
+  </div>
+  {% if pode('admin') %}<div class="acoes"><button class="primario">Salvar e-mail</button>
+    <input name="teste_para" placeholder="enviar teste para…" style="max-width:260px">
+    <button name="acao" value="testar">Testar e salvar</button></div>{% endif %}
+</form>
+
 <div class="cartao">
   <h2>Certificados digitais</h2>
   <p class="mini">O <strong>principal</strong> é usado na emissão; se vencer, o servidor usa o válido com maior validade.

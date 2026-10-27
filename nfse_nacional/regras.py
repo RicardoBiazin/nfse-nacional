@@ -73,7 +73,10 @@ def validar_negocio(dps: DPS, convenio_ativo: bool | None = None) -> list[str]:
         if v.tp_ret_issqn == "3" and not dps.intermediario:
             erros.append("Retenção pelo intermediário exige o intermediário identificado.")
     if v.p_aliq is not None and Decimal(v.p_aliq) > 5:
-        erros.append("E0595: alíquota não pode passar de 5%.")
+        dica = (" O percentual do Simples Nacional (ex.: 7,18) não vai aqui: no cadastro da "
+                "empresa escolha 'Simples Nacional ME/EPP' e informe-o em 'Tributos aprox. Simples'."
+                if p.op_simp_nac != "3" else "")
+        erros.append(f"E0595: alíquota do ISS não pode passar de 5%.{dica}")
 
     exig = aliquota_exigida(p.op_simp_nac, p.reg_ap_trib_sn, p.reg_esp_trib,
                             v.trib_issqn, v.tp_ret_issqn, convenio_ativo)

@@ -74,6 +74,7 @@
           {% if n.chave %}<a href="/notas/{{ n.id }}/danfse" target="_blank">DANFSe</a>{% endif %}
           <a href="/notas/{{ n.id }}/xml">XML</a>
           {% if n.origem == 'emitida' and pode('emissor') %}<a href="/notas/{{ n.id }}/duplicar">Duplicar</a>{% endif %}
+          {% if n.origem == 'emitida' and n.chave and pode('emissor') %}<a href="/notas/{{ n.id }}/email" title="{{ 'Último envio: ' ~ n.email_enviado.replace('T', ' ') if n.email_enviado else 'Enviar DANFSe e XML ao tomador' }}">E-mail{{ ' ✓' if n.email_enviado }}</a>{% endif %}
           {% if n.situacao in ('indefinida', 'pendente') and pode('emissor') %}<button form="rec-{{ n.id }}" class="mini">Reconsultar</button>{% endif %}
           {% if n.origem == 'emitida' and n.situacao == 'autorizada' and pode('admin') %}<a href="/notas/{{ n.id }}/cancelar" style="color:var(--vermelho)">Cancelar</a>{% endif %}
         </td>

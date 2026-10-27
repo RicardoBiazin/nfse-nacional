@@ -21,14 +21,14 @@ from typing import Callable
 
 import requests
 from fastapi import Depends, FastAPI, Form, Request, UploadFile
-from fastapi.responses import (HTMLResponse, RedirectResponse, Response,
+from fastapi.responses import (HTMLResponse, JSONResponse, RedirectResponse, Response,
                                StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from .. import VERSAO, cofre, exportar, regras, tabelas
-from ..banco import Banco, Empresa, Tomador
+from .. import VERSAO, cofre, consultas, email_nfse, exportar, regras, tabelas
+from ..banco import Banco, ConfigEmail, Empresa, Tomador
 from ..certificado import Certificado, SenhaCertificadoIncorreta
 from ..cliente_http import ErroApi, sessao_mtls
 from ..dps import so_digitos
@@ -384,6 +384,28 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
         except Exception as erro:      # noqa: BLE001
             return pagina(request, "cancelar.html", u, n=n, erro=texto_erro(erro), status=400)
 
+    @app.get("/notas/{id_}/email", response_class=HTMLResponse)
+    def email_form(request: Request, id_: int, u=Depends(exigir("emissor"))):
+        e = empresa_atual(request)
+        n = _nota(id_, e)
+        tom = banco.tomador(n["tomador_doc"]) if n["tomador_doc"] else None
+        return pagina(request, "email_nota.html", u, n=n, para=tom.email if tom else "",
+                      envios=banco.envios(id_), cfg=banco.config_email(e.id))
+
+    @app.post("/notas/{id_}/email", dependencies=[Depends(csrf)])
+    def email_enviar(request: Request, id_: int, para: str = Form(""), u=Depends(exigir("emissor"))):
+        e = empresa_atual(request)
+        n = _nota(id_, e)
+        try:
+            destinos = email_nfse.enviar_nota(banco, id_, para)
+        except Exception as erro:      # noqa: BLE001
+            return pagina(request, "email_nota.html", u, n=n, para=para, envios=banco.envios(id_),
+                          cfg=banco.config_email(e.id), erro=texto_erro(erro), status=400)
+        banco.auditar(u["login"], "email", f"NFS-e {n['numero']} para {', '.join(destinos)}",
+                      n["chave"], ip_de(request))
+        flash(request, aviso=f"NFS-e nº {n['numero']} enviada para {', '.join(destinos)}.")
+        return RedirectResponse("/notas?ambiente=" + n["ambiente"], status_code=303)
+
     @app.get("/notas/{id_}/duplicar")
     def duplicar(id_: int):
         return RedirectResponse(f"/emitir?duplicar={id_}", status_code=303)
@@ -535,7 +557,8 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
     def _tela_emitir(request, u, e, f, erros=None, resultado=None, status=200):
         regra = _regra_aliquota(e, f.get("trib_issqn", "1"), f.get("tp_ret_issqn", "1"))
         return pagina(request, "emitir.html", u, f=f, erros=erros or [], resultado=resultado,
-                      regra=regra, tomadores=banco.tomadores(empresa_id=e.id), status=status)
+                      regra=regra, tomadores=banco.tomadores(empresa_id=e.id),
+                      cfg_email=banco.config_email(e.id), status=status)
 
     @app.get("/emitir", response_class=HTMLResponse)
     def emitir_form(request: Request, duplicar: int | None = None, repetir: str = "",
@@ -576,6 +599,15 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
                 return _tela_emitir(request, u, e, f, status=400, erros=[
                     "Ambiente de PRODUÇÃO: marque a confirmação de que a nota tem valor fiscal."])
             r = em.emitir(dados)
+            if r.situacao == "autorizada" and f.get("enviar_email"):
+                try:
+                    destinos = email_nfse.enviar_nota(banco, r.nota_id, f.get("t_email", ""))
+                    r.mensagem = ((r.mensagem + " | ") if r.mensagem else "") + \
+                        "E-mail enviado para " + ", ".join(destinos) + "."
+                    banco.auditar(u["login"], "email", ", ".join(destinos), r.chave, ip_de(request))
+                except Exception as erro:      # noqa: BLE001 - a nota já está autorizada
+                    r.mensagem = ((r.mensagem + " | ") if r.mensagem else "") + \
+                        f"E-mail NÃO enviado: {texto_erro(erro)} (reenvie pela lista de notas)."
             if r.situacao == "autorizada" and dados.p_tot_trib_sn is not None:
                 novo = f"{dados.p_tot_trib_sn:.2f}"
                 if novo != e.p_tot_sn:
@@ -633,6 +665,28 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
                      t_cpl=t.complemento, t_bairro=t.bairro)
         return tpl.TemplateResponse(request, "_tomador.html", {"f": f, "achou": bool(t)})
 
+    @app.get("/consultas/cnpj/{documento}")
+    def consulta_cnpj(documento: str, u=Depends(usuario_logado)):
+        """Cadastro público do CNPJ (Receita) para preencher o tomador."""
+        try:
+            c = consultas.consultar_cnpj(documento)
+        except consultas.ErroConsulta as erro:
+            return JSONResponse({"erro": str(erro)}, status_code=404)
+        end = c.endereco
+        return {"t_nome": c.nome, "t_email": c.email, "t_fone": c.fone, "t_cep": end.cep,
+                "t_lgr": end.logradouro, "t_nro": c.numero, "t_cpl": end.complemento,
+                "t_bairro": end.bairro, "t_cmun": end.c_mun, "municipio": end.municipio,
+                "situacao": c.situacao}
+
+    @app.get("/consultas/cep/{cep}")
+    def consulta_cep(cep: str, u=Depends(usuario_logado)):
+        try:
+            end = consultas.consultar_cep(cep)
+        except consultas.ErroConsulta as erro:
+            return JSONResponse({"erro": str(erro)}, status_code=404)
+        return {"t_lgr": end.logradouro, "t_bairro": end.bairro, "t_cmun": end.c_mun,
+                "municipio": end.municipio}
+
     # ------------------------------------------------------------ empresa e certificados
     @app.get("/empresa", response_class=HTMLResponse)
     def empresa_form(request: Request, u=Depends(usuario_logado)):
@@ -642,8 +696,48 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
             cofre.migrar_certificado_antigo(banco, e)
             certs = banco.certificados(e.id)
         prox = banco.proximo_numero(e.id, e.ambiente, e.serie) if e else 1
-        return pagina(request, "empresa.html", u, certs=certs, prox=prox,
+        cfg = banco.config_email(e.id) if e else None
+        return pagina(request, "empresa.html", u, certs=certs, prox=prox, cfg=cfg,
+                      senha_smtp=bool(e and email_nfse.senha_smtp(e.id)),
+                      ASSUNTO_PADRAO=email_nfse.ASSUNTO_PADRAO, CORPO_PADRAO=email_nfse.CORPO_PADRAO,
+                      CAMPOS_EMAIL=email_nfse.CAMPOS,
                       agora=dt.datetime.now(dt.timezone.utc).isoformat())
+
+    def _config_email_do_form(e: Empresa, f: dict) -> ConfigEmail:
+        corpo = f.get("corpo", "").replace("\r\n", "\n")
+        porta = f.get("porta", "").strip()
+        return ConfigEmail(
+            empresa_id=e.id, host=f.get("host", "").strip(), porta=int(porta) if porta.isdigit() else 587,
+            seguranca=f.get("seguranca", "starttls") if f.get("seguranca") in ("starttls", "ssl", "nenhuma")
+            else "starttls", usuario=f.get("usuario", "").strip(), remetente=f.get("remetente", "").strip(),
+            nome_remetente=f.get("nome_remetente", "").strip(), copia=f.get("copia", "").strip(),
+            assunto=f.get("assunto", "").strip(),
+            corpo="" if corpo.strip() == email_nfse.CORPO_PADRAO.strip() else corpo,
+            enviar_auto=int(bool(f.get("enviar_auto"))))
+
+    @app.post("/empresa/email", dependencies=[Depends(csrf)])
+    async def empresa_email(request: Request, u=Depends(exigir("admin"))):
+        e = empresa_atual(request)
+        f = {k: str(v) for k, v in (await request.form()).items()}
+        cfg = _config_email_do_form(e, f)
+        try:
+            if bool(cfg.host) != bool(cfg.remetente):
+                raise ValueError("Informe o servidor SMTP e o remetente (ou deixe os dois vazios).")
+            email_nfse.separar_enderecos(cfg.remetente)
+            email_nfse.separar_enderecos(cfg.copia)
+            if f.get("acao") == "testar":
+                email_nfse.enviar_teste(cfg, f.get("senha") or email_nfse.senha_smtp(e.id),
+                                        f.get("teste_para") or cfg.remetente)
+        except Exception as erro:      # noqa: BLE001
+            flash(request, erro=texto_erro(erro))
+            return RedirectResponse("/empresa#email", status_code=303)
+        banco.salvar_config_email(cfg)
+        if f.get("senha"):
+            email_nfse.guardar_senha_smtp(e.id, f["senha"])
+        banco.auditar(u["login"], "empresa", f"e-mail: {cfg.host} / {cfg.remetente}", ip=ip_de(request))
+        flash(request, aviso="Teste enviado e configuração salva." if f.get("acao") == "testar"
+              else "Configuração de e-mail salva.")
+        return RedirectResponse("/empresa#email", status_code=303)
 
     @app.post("/empresa", dependencies=[Depends(csrf)])
     async def empresa_salvar(request: Request, u=Depends(exigir("admin"))):

@@ -124,6 +124,28 @@ CREATE TABLE IF NOT EXISTS notas (
     dps_xml BLOB, nfse_xml BLOB,
     criado_em TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS config_email (
+    empresa_id INTEGER PRIMARY KEY,
+    host TEXT NOT NULL DEFAULT '',
+    porta INTEGER NOT NULL DEFAULT 587,
+    seguranca TEXT NOT NULL DEFAULT 'starttls',   -- starttls | ssl | nenhuma
+    usuario TEXT NOT NULL DEFAULT '',
+    remetente TEXT NOT NULL DEFAULT '',
+    nome_remetente TEXT NOT NULL DEFAULT '',
+    copia TEXT NOT NULL DEFAULT '',               -- cópia oculta (ex.: o próprio escritório)
+    assunto TEXT NOT NULL DEFAULT '',
+    corpo TEXT NOT NULL DEFAULT '',
+    enviar_auto INTEGER NOT NULL DEFAULT 0        -- marca "enviar ao tomador" ao emitir
+);
+CREATE TABLE IF NOT EXISTS envios_email (
+    id INTEGER PRIMARY KEY,
+    nota_id INTEGER NOT NULL,
+    quando TEXT NOT NULL,
+    para TEXT NOT NULL,
+    ok INTEGER NOT NULL,
+    erro TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_envios_nota ON envios_email (nota_id);
 CREATE INDEX IF NOT EXISTS ix_notas_empresa ON notas (empresa_id, ambiente, d_compet);
 CREATE TABLE IF NOT EXISTS eventos (
     id INTEGER PRIMARY KEY,
@@ -166,6 +188,25 @@ class Empresa:
     ibs_cst: str = ""
     ibs_c_class_trib: str = ""
     id: int | None = None
+
+
+@dataclass
+class ConfigEmail:
+    empresa_id: int
+    host: str = ""
+    porta: int = 587
+    seguranca: str = "starttls"
+    usuario: str = ""
+    remetente: str = ""
+    nome_remetente: str = ""
+    copia: str = ""
+    assunto: str = ""
+    corpo: str = ""
+    enviar_auto: int = 0
+
+    @property
+    def configurado(self) -> bool:
+        return bool(self.host and self.remetente)
 
 
 @dataclass
@@ -469,7 +510,9 @@ class Banco:
               origem: str = "", situacao: str = "", texto: str = "") -> list[sqlite3.Row]:
         sql = ["SELECT id, origem, situacao, serie, n_dps, id_dps, chave, numero, d_compet,"
                " dh_emissao, prestador_doc, prestador_nome, tomador_doc, tomador_nome,"
-               " descricao, v_serv, v_liq, v_issqn, mensagem FROM notas"
+               " descricao, v_serv, v_liq, v_issqn, mensagem,"
+               " (SELECT MAX(quando) FROM envios_email e WHERE e.nota_id = notas.id AND e.ok = 1)"
+               " AS email_enviado FROM notas"
                " WHERE empresa_id=? AND ambiente=?"]
         args: list = [empresa_id, ambiente]
         if inicio:
@@ -493,6 +536,27 @@ class Banco:
             "SELECT * FROM notas WHERE empresa_id=? AND origem='emitida' AND tomador_doc=? "
             "AND situacao='autorizada' AND COALESCE(nfse_xml, dps_xml) IS NOT NULL "
             "ORDER BY d_compet DESC, id DESC LIMIT 1", (empresa_id, documento)).fetchone()
+
+    # ------------------------------------------------------------ e-mail
+    def config_email(self, empresa_id: int) -> ConfigEmail:
+        r = self.con.execute("SELECT * FROM config_email WHERE empresa_id=?", (empresa_id,)).fetchone()
+        return _de_linha(ConfigEmail, r) if r else ConfigEmail(empresa_id=empresa_id)
+
+    def salvar_config_email(self, c: ConfigEmail):
+        dados = asdict(c)
+        colunas = ", ".join(dados)
+        marcas = ", ".join(f":{k}" for k in dados)
+        atualiza = ", ".join(f"{k}=excluded.{k}" for k in dados if k != "empresa_id")
+        self.con.execute(f"INSERT INTO config_email ({colunas}) VALUES ({marcas}) "
+                         f"ON CONFLICT(empresa_id) DO UPDATE SET {atualiza}", dados)
+
+    def registrar_envio(self, nota_id: int, para: str, ok: bool, erro: str = ""):
+        self.con.execute("INSERT INTO envios_email (nota_id, quando, para, ok, erro) VALUES (?, ?, ?, ?, ?)",
+                         (nota_id, _agora(), para, int(ok), erro or None))
+
+    def envios(self, nota_id: int):
+        return self.con.execute("SELECT * FROM envios_email WHERE nota_id=? ORDER BY id DESC",
+                                (nota_id,)).fetchall()
 
     # ------------------------------------------------------------ eventos
     def inserir_evento(self, chave: str, tipo: str, descricao: str, dh: str,

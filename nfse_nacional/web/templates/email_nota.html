@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Enviar NFS-e por e-mail · NFS-e Nacional{% endblock %}
+{% block conteudo %}
+<div class="cartao" style="max-width:640px">
+  <h2>Enviar NFS-e nº {{ n.numero }} por e-mail</h2>
+  <p>{{ n.tomador_nome }} · R$ {{ moeda(n.v_serv) }} · competência {{ data_br(n.d_compet) }}<br>
+     <span class="mini">Anexos: DANFSe (PDF) e XML da NFS-e (e do cancelamento, se houver).</span></p>
+  {% if not cfg.configurado %}
+  <div class="flash erro">O envio de e-mail não está configurado.
+    {% if pode('admin') %}Configure em <a href="/empresa#email">Empresa &gt; E-mail</a>.{% else %}Peça a um administrador.{% endif %}</div>
+  {% endif %}
+  {% if erro %}<div class="flash erro">{{ erro }}</div>{% endif %}
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="para">Para (um ou mais, separados por vírgula)</label>
+    <input id="para" name="para" value="{{ para }}" required>
+    <div class="acoes"><button class="primario" {{ '' if cfg.configurado else 'disabled' }}>Enviar</button>
+      <a class="botao" href="/notas?ambiente={{ n.ambiente }}">Voltar</a></div>
+  </form>
+  {% if envios %}
+  <h2 style="margin-top:16px">Envios anteriores</h2>
+  <table>
+    <thead><tr><th>Quando</th><th>Para</th><th>Resultado</th></tr></thead>
+    <tbody>{% for x in envios %}
+      <tr><td>{{ x.quando.replace('T', ' ') }}</td><td>{{ x.para }}</td>
+        <td class="{{ 'sit-autorizada' if x.ok else 'sit-rejeitada' }}">{{ 'enviado' if x.ok else x.erro }}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

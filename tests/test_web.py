@@ -208,3 +208,49 @@ def test_consultar_municipio(ctx):
     assert "convênio ATIVO" in r.text and "2,00%" in r.text
     e = banco.empresa_por_cnpj(CNPJ)
     assert (e.convenio_ativo, e.p_aliq) == (1, "2.00")
+
+
+def test_email_e_consultas_cnpj_cep(ctx, monkeypatch):
+    import smtplib
+
+    from nfse_nacional import consultas
+
+    from .test_consultas_email import BRASILAPI, VIACEP, Rede, Resp, SMTPFalso
+    c, banco, sessao, tmp = ctx
+    e = _preparar(c, banco, tmp)
+    rede = Rede({"brasilapi.com.br/api/cnpj": Resp(200, BRASILAPI), "viacep": Resp(200, VIACEP)})
+    monkeypatch.setattr(consultas, "_get", lambda url, s=None: rede.get(url))
+    d = c.get("/consultas/cnpj/11444777000161").json()
+    assert d["t_nome"] == "CLIENTE EXEMPLO SERVICOS LTDA" and d["t_lgr"] == "Rua Emílio Blum"
+    assert c.get("/consultas/cep/88020010").json()["t_cmun"] == "4205407"
+    assert c.get("/consultas/cnpj/11444777000162").status_code == 404
+
+    SMTPFalso.enviados, SMTPFalso.instancias = [], []
+    monkeypatch.setattr(smtplib, "SMTP", SMTPFalso)
+    r = c.get("/empresa")
+    assert 'id="email"' in r.text
+    r = c.post("/empresa/email", data={"csrf": _csrf(r.text), "host": "smtp.exemplo.com", "porta": "587",
+                                       "seguranca": "starttls", "usuario": "nfe@exemplo.com.br",
+                                       "senha": "segredo", "remetente": "nfe@exemplo.com.br",
+                                       "corpo": "Nota {numero}", "enviar_auto": "1"})
+    assert "Configuração de e-mail salva" in r.text
+    cfg = banco.config_email(e.id)
+    assert cfg.configurado and cfg.enviar_auto and cfg.corpo == "Nota {numero}"
+    # senha cifrada no banco (DPAPI), como a do certificado
+    assert banco.con.execute("SELECT count(*) FROM segredos WHERE chave LIKE 'smtp:%'").fetchone()[0] == 1
+
+    sessao.rota("POST", r"/nfse$", _emissao_ok)
+    r = c.get("/emitir")
+    assert 'name="enviar_email"' in r.text and "Consultar CNPJ" in r.text
+    r = c.post("/emitir", data={"csrf": _csrf(r.text), "acao": "emitir", "t_doc": "11444777000161",
+                                "t_nome": "CLIENTE EXEMPLO", "t_email": "cliente@exemplo.com.br",
+                                "descricao": "Consultoria ERP", "compet": "2026-09-01", "v_serv": "1.500,00",
+                                "trib_issqn": "1", "tp_ret_issqn": "1", "enviar_email": "1"})
+    assert "E-mail enviado para cliente@exemplo.com.br" in r.text, r.text[:2000]
+    assert SMTPFalso.enviados[-1][1] == ["cliente@exemplo.com.br"]
+    nota = banco.nota_por_chave(CHAVE)
+    r = c.get(f"/notas/{nota['id']}/email")
+    assert "cliente@exemplo.com.br" in r.text and "Envios anteriores" in r.text
+    r = c.post(f"/notas/{nota['id']}/email", data={"csrf": _csrf(r.text), "para": "outro@exemplo.com"})
+    assert "enviada para outro@exemplo.com" in r.text
+    assert "E-mail ✓" in c.get("/notas?ambiente=producao_restrita&inicio=2000-01-01&fim=2100-01-01").text

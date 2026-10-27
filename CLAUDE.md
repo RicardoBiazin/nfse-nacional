@@ -20,6 +20,10 @@ Nacional e no ADN. Python 3.13, venv em `.venv`.
 - `servico.py` orquestra (emissão idempotente, cancelamento, sincronização NSU)
 - `banco.py` SQLite em `%LOCALAPPDATA%\NFSE_Nacional` (env `NFSE_NACIONAL_DADOS` sobrepõe)
 - `regras.py` RNs do Anexo I checadas antes do envio
+- `consultas.py` CNPJ (BrasilAPI/CNPJ.ws) e CEP (ViaCEP/BrasilAPI); testes nunca vão à rede
+  (conftest troca `consultas._get`)
+- `email_nfse.py` envio por SMTP da empresa (tabelas `config_email` e `envios_email`; senha no
+  cofre sob `smtp:<empresa_id>`)
 - `schemas/` XSDs oficiais v1.01 (não editar à mão; as âncoras `^$` são tratadas no carregamento)
 
 ## Versão web (`web/`)

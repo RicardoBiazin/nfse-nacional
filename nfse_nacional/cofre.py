@@ -44,6 +44,11 @@ def _guardar(chave: str, senha: str):
         keyring.set_password(SERVICO_KEYRING, chave, senha)
 
 
+def guardar_senha(chave: str, senha: str):
+    """Outras senhas do app (ex.: SMTP, chave "smtp:<empresa_id>") no mesmo cofre."""
+    _guardar(chave, senha)
+
+
 def _restringir_acl(caminho: Path):
     """Só o usuário atual lê o arquivo (no Windows a herança da pasta é larga)."""
     if os.name != "nt":

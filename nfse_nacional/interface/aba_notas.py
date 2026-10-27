@@ -23,7 +23,7 @@ from .comum import em_segundo_plano, moeda, mostrar_erro
 COLUNAS = [("Situação", "situacao"), ("Origem", "origem"), ("Nº NFS-e", "numero"),
            ("nDPS", "n_dps"), ("Competência", "d_compet"), ("Tomador / Prestador", "_parte"),
            ("Descrição", "descricao"), ("Valor", "v_serv"), ("ISS", "v_issqn"),
-           ("Chave", "chave"), ("Mensagem", "mensagem")]
+           ("E-mail", "email_enviado"), ("Chave", "chave"), ("Mensagem", "mensagem")]
 CORES = {"autorizada": "#1b7f3b", "cancelada": "#9a9a9a", "rejeitada": "#b3261e",
          "indefinida": "#b26a00", "pendente": "#b26a00"}
 
@@ -106,7 +106,8 @@ class AbaNotas(QWidget):
         self.status = QLabel("")
         acoes = QHBoxLayout()
         botoes = [("Sincronizar ADN", self._sincronizar), ("Duplicar nota", self._duplicar), ("Reconsultar", self._reconsultar),
-                  ("DANFSe (PDF)", self._danfse), ("Cancelar NFS-e", self._cancelar),
+                  ("DANFSe (PDF)", self._danfse), ("Enviar por e-mail", self._enviar_email),
+                  ("Cancelar NFS-e", self._cancelar),
                   ("Ver XML", self._ver_xml), ("Importar XML/PDF…", self._importar_xml),
                   ("Exportar XLSX", self._exportar_xlsx), ("Exportar XML/PDF…", self._exportar_xmls)]
         self.botoes = {}
@@ -142,6 +143,8 @@ class AbaNotas(QWidget):
                     v = moeda(v)
                 if campo == "d_compet" and v:
                     v = "/".join(reversed(v.split("-")))
+                if campo == "email_enviado" and v:
+                    v = f"enviado {v[8:10]}/{v[5:7]} {v[11:16]}"
                 it = QTableWidgetItem("" if v is None else str(v))
                 if campo in ("v_serv", "v_issqn", "numero", "n_dps"):
                     it.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -273,6 +276,73 @@ class AbaNotas(QWidget):
             if hasattr(os, "startfile"):
                 os.startfile(arq)          # noqa: S606 - abre no visualizador padrão
         em_segundo_plano(lambda: em.danfse(n["id"]), salvar, lambda e: mostrar_erro(self, e, "DANFSe"))
+
+    def _enviar_email(self):
+        from ..email_nfse import enviar_nota
+        sel = [n for n in self._selecionadas() if n["origem"] == "emitida"]
+        if not sel:
+            QMessageBox.information(self, "Enviar por e-mail", "Selecione nota(s) emitida(s) por você.")
+            return
+        emp = self.obter_empresa()
+        if not self.banco.config_email(emp.id).configurado:
+            QMessageBox.information(self, "Enviar por e-mail",
+                                    "Configure o envio primeiro: 'Configurar empresa' > aba E-mail "
+                                    "(servidor SMTP, usuário e senha do seu e-mail).")
+            return
+        if len(sel) == 1:
+            n = sel[0]
+            tom = self.banco.tomador(n["tomador_doc"]) if n["tomador_doc"] else None
+            d = QDialog(self); d.setWindowTitle(f"Enviar NFS-e nº {n['numero'] or '?'}")
+            f = QFormLayout(d)
+            para = QLineEdit(tom.email if tom else ""); para.setMinimumWidth(380)
+            para.setPlaceholderText("um ou mais e-mails, separados por vírgula")
+            f.addRow("Para", para)
+            f.addRow(QLabel("Anexos: DANFSe (PDF) e XML da NFS-e (e do cancelamento, se houver)."))
+            anteriores = self.banco.envios(n["id"])
+            if anteriores:
+                ult = anteriores[0]
+                f.addRow(QLabel(f"Último envio: {ult['quando'].replace('T', ' ')} para {ult['para']} — "
+                                + ("ok" if ult["ok"] else f"falhou ({ult['erro']})")))
+            bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+            bb.button(QDialogButtonBox.StandardButton.Ok).setText("Enviar")
+            bb.accepted.connect(d.accept); bb.rejected.connect(d.reject)
+            f.addRow(bb)
+            if d.exec() != QDialog.DialogCode.Accepted:
+                return
+            pedidos = [(n, para.text())]
+        else:
+            if QMessageBox.question(self, "Enviar por e-mail",
+                                    f"Enviar {len(sel)} notas, cada uma para o e-mail do tomador "
+                                    "cadastrado?") != QMessageBox.StandardButton.Yes:
+                return
+            pedidos = [(n, None) for n in sel]
+        b = self.botoes["Enviar por e-mail"]
+        b.setEnabled(False)
+
+        def tarefa(avisar):
+            ok, erros = [], []
+            for i, (n, para) in enumerate(pedidos, 1):
+                avisar(f"Enviando e-mail {i}/{len(pedidos)}: NFS-e nº {n['numero'] or n['id']}")
+                try:
+                    ok.append(f"nº {n['numero']}: " + ", ".join(enviar_nota(self.banco, n["id"], para)))
+                except Exception as erro:      # noqa: BLE001 - segue com as demais
+                    erros.append(f"nº {n['numero'] or n['id']}: {erro}")
+            return ok, erros
+
+        def fim(r):
+            b.setEnabled(True)
+            self.recarregar()
+            ok, erros = r
+            texto = f"{len(ok)} e-mail(s) enviado(s)." + ("\n" + "\n".join(ok[:20]) if ok else "")
+            if erros:
+                texto += f"\n\n{len(erros)} com erro:\n" + "\n".join(erros[:20])
+            self.status.setText(texto.splitlines()[0])
+            (QMessageBox.warning if erros else QMessageBox.information)(self, "Enviar por e-mail", texto)
+
+        def falha(e):
+            b.setEnabled(True)
+            mostrar_erro(self, e, "Enviar por e-mail")
+        em_segundo_plano(tarefa, fim, falha, progresso=self.status.setText)
 
     def _ver_xml(self):
         n = self._uma()

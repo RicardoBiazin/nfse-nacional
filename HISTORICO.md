@@ -174,3 +174,20 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
   navegador. Portão anti-robô (prova de trabalho + cookie HMAC) igual ao do EditPDFree.
 - Executáveis publicados em GitHub Releases.
 
+
+## 0.9.0 — 27/10/2026
+
+- **Consulta de CNPJ** no tomador (desktop e web): razão social, endereço, telefone e e-mail da
+  base pública da Receita (BrasilAPI; se falhar, CNPJ.ws). Automática ao digitar um CNPJ novo
+  com o nome vazio; o botão "Consultar CNPJ" força. Avisa se a situação não for ATIVA. CPF não
+  tem fonte pública.
+- **CEP preenche o endereço**: logradouro, bairro e município (IBGE) pelo ViaCEP (reserva:
+  BrasilAPI). A grafia com acento do CEP substitui a da Receita quando é a mesma rua.
+- **Envio da NFS-e por e-mail** ao tomador, com DANFSe (PDF) e XML (e o XML do cancelamento):
+  SMTP por empresa (Configurar empresa > E-mail, com atalhos para Gmail, Microsoft 365, Yahoo,
+  Locaweb e Hostinger), senha no cofre (Windows no desktop, DPAPI no servidor), cópia oculta,
+  assunto e mensagem com campos ({numero}, {tomador}, {valor}...), botão de teste. Na emissão,
+  "Enviar por e-mail ao tomador"; na aba Notas, "Enviar por e-mail" para uma ou várias notas e
+  coluna com a data do último envio. Cada envio (ou falha) fica registrado.
+- Mensagem do E0595 explica quando o percentual do Simples foi digitado na alíquota do ISS
+  (empresa cadastrada como "Não optante"); erro de município aponta onde corrigir.

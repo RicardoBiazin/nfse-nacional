@@ -48,3 +48,17 @@ def certificado(pfx_bytes):
 @pytest.fixture(autouse=True)
 def pasta_dados_temporaria(tmp_path, monkeypatch):
     monkeypatch.setenv("NFSE_NACIONAL_DADOS", str(tmp_path / "dados"))
+
+
+@pytest.fixture(autouse=True)
+def sem_rede_nas_consultas(monkeypatch):
+    """CNPJ/CEP nunca vão à internet nos testes; quem precisa troca consultas._get."""
+    import requests
+
+    from nfse_nacional import consultas
+
+    def bloqueado(url, sessao=None):
+        if sessao is not None:
+            return sessao.get(url, headers=consultas.CABECALHO, timeout=consultas.TEMPO)
+        raise requests.ConnectionError(f"rede bloqueada nos testes: {url}")
+    monkeypatch.setattr(consultas, "_get", bloqueado)

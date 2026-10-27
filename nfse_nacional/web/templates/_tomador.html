@@ -1,12 +1,15 @@
 <div class="grade" style="margin-top:10px">
-  <div><label for="t_doc">CPF/CNPJ</label><input id="t_doc" name="t_doc" value="{{ f.get('t_doc', '') }}" placeholder="vazio = sem tomador"></div>
+  <div><label for="t_doc">CPF/CNPJ</label>
+    <div style="display:flex;gap:6px"><input id="t_doc" name="t_doc" value="{{ f.get('t_doc', '') }}" placeholder="vazio = sem tomador">
+      <button type="button" id="consultar-cnpj" title="Busca razão social, endereço, telefone e e-mail na base pública da Receita (só CNPJ)">Consultar CNPJ</button></div>
+    <span class="desc" id="aviso-consulta"></span></div>
   <div style="grid-column: span 2"><label for="t_nome">Nome / razão social</label><input id="t_nome" name="t_nome" value="{{ f.get('t_nome', '') }}"></div>
   <div><label for="t_im">Inscrição municipal</label><input id="t_im" name="t_im" value="{{ f.get('t_im', '') }}"></div>
   <div><label for="t_email">E-mail</label><input id="t_email" name="t_email" value="{{ f.get('t_email', '') }}"></div>
   <div><label for="t_fone">Telefone</label><input id="t_fone" name="t_fone" value="{{ f.get('t_fone', '') }}"></div>
   <div><label for="t_cmun">Município (IBGE)</label><input id="t_cmun" name="t_cmun" value="{{ f.get('t_cmun', '') }}">
     {% if f.get('t_cmun') %}<span class="desc">{{ f.get('t_cmun') }} - {{ nome_municipio(f.get('t_cmun')) }}</span>{% endif %}</div>
-  <div><label for="t_cep">CEP</label><input id="t_cep" name="t_cep" value="{{ f.get('t_cep', '') }}"></div>
+  <div><label for="t_cep">CEP</label><input id="t_cep" name="t_cep" value="{{ f.get('t_cep', '') }}" placeholder="o endereço vem sozinho"></div>
   <div style="grid-column: span 2"><label for="t_lgr">Logradouro</label><input id="t_lgr" name="t_lgr" value="{{ f.get('t_lgr', '') }}"></div>
   <div><label for="t_nro">Número</label><input id="t_nro" name="t_nro" value="{{ f.get('t_nro', '') }}"></div>
   <div><label for="t_cpl">Complemento</label><input id="t_cpl" name="t_cpl" value="{{ f.get('t_cpl', '') }}"></div>

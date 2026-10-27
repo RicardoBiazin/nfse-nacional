@@ -66,17 +66,26 @@ class AbaEmitir(QWidget):
         caixa_tom.addLayout(grid)
         self.t_doc = QLineEdit(); self.t_doc.setPlaceholderText("CPF ou CNPJ (vazio = sem tomador)")
         self.t_doc.editingFinished.connect(self._carregar_tomador)
+        self.bt_cnpj = QPushButton("Consultar CNPJ")
+        self.bt_cnpj.setToolTip("Busca razão social, endereço, telefone e e-mail na base pública "
+                                "da Receita Federal (só CNPJ; CPF não tem consulta pública)")
+        self.bt_cnpj.clicked.connect(lambda: self._consultar_cnpj(forcar=True))
+        linha_doc = QHBoxLayout(); linha_doc.setContentsMargins(0, 0, 0, 0)
+        linha_doc.addWidget(self.t_doc, 1); linha_doc.addWidget(self.bt_cnpj)
+        caixa_doc = QWidget(); caixa_doc.setLayout(linha_doc)
         self.t_nome = QLineEdit()
         self.t_im = QLineEdit()
         self.t_email = QLineEdit()
         self.t_fone = QLineEdit()
         self.t_cmun = CampoCodigo("municipio", 7); self.t_cmun.setPlaceholderText("IBGE ou nome da cidade")
-        self.t_cep = QLineEdit()
+        self.t_cep = QLineEdit(); self.t_cep.setPlaceholderText("digite o CEP: o endereço vem sozinho")
+        self.t_cep.editingFinished.connect(self._consultar_cep)
+        self._cep_consultado = ""
         self.t_lgr = QLineEdit()
         self.t_nro = QLineEdit()
         self.t_cpl = QLineEdit()
         self.t_bairro = QLineEdit()
-        campos = [("CPF/CNPJ", self.t_doc), ("Nome / razão social", self.t_nome),
+        campos = [("CPF/CNPJ", caixa_doc), ("Nome / razão social", self.t_nome),
                   ("Inscr. municipal", self.t_im), ("E-mail", self.t_email),
                   ("Telefone", self.t_fone), ("Município (IBGE)", self.t_cmun),
                   ("CEP", self.t_cep), ("Logradouro", self.t_lgr), ("Número", self.t_nro),
@@ -136,10 +145,14 @@ class AbaEmitir(QWidget):
         self.bt_emitir.setDefault(True)
         self.bt_emitir.setStyleSheet("font-weight: bold; padding: 6px 18px;")
         self.bt_emitir.clicked.connect(self._emitir)
+        self.enviar_email = QCheckBox("Enviar por e-mail ao tomador")
+        self.enviar_email.setToolTip("Depois de autorizada, manda DANFSe (PDF) e XML para o "
+                                     "e-mail do tomador, pelo SMTP configurado na empresa")
         bt_limpar = QPushButton("Limpar")
         bt_limpar.clicked.connect(self.limpar)
         botoes = QHBoxLayout()
         botoes.addWidget(bt_limpar); botoes.addStretch(1)
+        botoes.addWidget(self.enviar_email)
         botoes.addWidget(bt_validar); botoes.addWidget(self.bt_emitir)
 
         conteudo = QWidget()
@@ -201,6 +214,7 @@ class AbaEmitir(QWidget):
                          (self.t_cep, t.cep), (self.t_lgr, t.logradouro), (self.t_nro, t.numero),
                          (self.t_cpl, t.complemento), (self.t_bairro, t.bairro)):
                 w.setText(v or "")
+            self._cep_consultado = so_digitos(t.cep)
         self.descricao.setPlainText(d.descricao)
         self.c_trib_nac.setText(d.c_trib_nac)
         self.c_trib_mun.setText(d.c_trib_mun)
@@ -218,12 +232,72 @@ class AbaEmitir(QWidget):
     def _carregar_tomador(self):
         t = self.banco.tomador(so_digitos(self.t_doc.text()))
         if not t:
+            self._consultar_cnpj(forcar=False)
             return
+        self._cep_consultado = so_digitos(t.cep)
         for w, v in ((self.t_nome, t.nome), (self.t_im, t.im), (self.t_email, t.email),
                      (self.t_fone, t.fone), (self.t_cmun, t.c_mun), (self.t_cep, t.cep),
                      (self.t_lgr, t.logradouro), (self.t_nro, t.numero),
                      (self.t_cpl, t.complemento), (self.t_bairro, t.bairro)):
             w.setText(v)
+
+    def _consultar_cnpj(self, forcar: bool):
+        """Preenche o tomador com o cadastro público do CNPJ (Receita Federal).
+        Automático só para CNPJ novo com nome vazio; o botão sempre consulta."""
+        from ..consultas import cnpj_valido, consultar_cnpj
+        doc = so_digitos(self.t_doc.text())
+        if len(doc) != 14:
+            if forcar:
+                QMessageBox.information(self, "Consultar CNPJ",
+                                        "Digite um CNPJ (14 dígitos). CPF não tem consulta pública.")
+            return
+        if not forcar and (self.t_nome.text().strip() or not cnpj_valido(doc)):
+            return
+        self.bt_cnpj.setEnabled(False); self.bt_cnpj.setText("Consultando…")
+
+        def pronto(c):
+            self.bt_cnpj.setEnabled(True); self.bt_cnpj.setText("Consultar CNPJ")
+            if so_digitos(self.t_doc.text()) != doc:
+                return                          # usuário trocou o documento no meio
+            end = c.endereco
+            for w, v in ((self.t_nome, c.nome), (self.t_email, c.email), (self.t_fone, c.fone),
+                         (self.t_cep, end.cep), (self.t_lgr, end.logradouro), (self.t_nro, c.numero),
+                         (self.t_cpl, end.complemento), (self.t_bairro, end.bairro),
+                         (self.t_cmun, end.c_mun)):
+                if v:
+                    w.setText(v)
+            self._cep_consultado = end.cep
+            if c.situacao and c.situacao != "ATIVA":
+                QMessageBox.warning(self, "Consultar CNPJ",
+                                    f"Situação cadastral na Receita: {c.situacao}.")
+
+        def falha(erro):
+            self.bt_cnpj.setEnabled(True); self.bt_cnpj.setText("Consultar CNPJ")
+            if forcar:
+                mostrar_erro(self, erro, "Consultar CNPJ")
+        em_segundo_plano(lambda: consultar_cnpj(doc), pronto, falha)
+
+    def _consultar_cep(self):
+        """CEP novo -> logradouro, bairro e município (IBGE). O número fica com o usuário."""
+        from ..consultas import consultar_cep
+        cep = so_digitos(self.t_cep.text())
+        if len(cep) != 8 or cep == self._cep_consultado:
+            return
+        self._cep_consultado = cep
+
+        def pronto(end):
+            if so_digitos(self.t_cep.text()) != cep:
+                return
+            for w, v in ((self.t_lgr, end.logradouro), (self.t_bairro, end.bairro),
+                         (self.t_cmun, end.c_mun)):
+                if v:
+                    w.setText(v)
+            (self.t_nro if end.logradouro else self.t_lgr).setFocus()
+
+        def falha(erro):
+            self._cep_consultado = ""
+            mostrar_erro(self, erro, "Consultar CEP")
+        em_segundo_plano(lambda: consultar_cep(cep), pronto, falha)
 
     def _regra_aliquota(self, *_):
         """Trava o campo quando a RN proíbe pAliq (ex.: Simples Nacional sem retenção)."""
@@ -255,6 +329,11 @@ class AbaEmitir(QWidget):
         self.c_trib_nac.definir_padrao(e.c_trib_nac if e else "")
         self.c_nbs.definir_padrao(e.c_nbs if e else "")
         self.c_loc.definir_padrao(e.c_mun if e else "")
+        cfg = self.banco.config_email(e.id) if e and e.id else None
+        self.enviar_email.setEnabled(bool(cfg and cfg.configurado))
+        self.enviar_email.setChecked(bool(cfg and cfg.configurado and cfg.enviar_auto))
+        if not (cfg and cfg.configurado):
+            self.enviar_email.setToolTip("Configure o SMTP em 'Configurar empresa' > E-mail")
         if emissor and not self.descricao.toPlainText().strip():
             self.descricao.setPlainText(emissor.empresa.descricao_padrao)
 
@@ -266,6 +345,7 @@ class AbaEmitir(QWidget):
                   self.c_trib_mun, self.c_nbs, self.c_loc, self.info, self.v_serv, self.v_desc,
                   self.p_aliq):
             w.clear()
+        self._cep_consultado = ""
         self.descricao.clear()
         self.trib.setCurrentIndex(0); self.ret.setCurrentIndex(0)
         self.compet.setDate(QDate.currentDate())
@@ -345,6 +425,7 @@ class AbaEmitir(QWidget):
             texto += "\n\nAMBIENTE DE PRODUÇÃO: a nota terá valor fiscal."
         if QMessageBox.question(self, "Emitir", texto) != QMessageBox.StandardButton.Yes:
             return
+        mandar_email = self.enviar_email.isEnabled() and self.enviar_email.isChecked()
         self.bt_emitir.setEnabled(False)
         self.bt_emitir.setText("Enviando…")
 
@@ -362,6 +443,8 @@ class AbaEmitir(QWidget):
                 QMessageBox.information(self, "NFS-e autorizada",
                                         f"NFS-e nº {r.numero}\nChave: {r.chave}"
                                         + (f"\n\nAvisos: {r.mensagem}" if r.mensagem else ""))
+                if mandar_email:
+                    self._enviar_email(r.nota_id, d.tomador.email if d.tomador else "")
                 self.limpar()
             elif r.situacao == "rejeitada":
                 QMessageBox.warning(self, "Rejeitada", r.mensagem)
@@ -375,3 +458,14 @@ class AbaEmitir(QWidget):
             self.bt_emitir.setEnabled(True); self.bt_emitir.setText("Emitir NFS-e")
             mostrar_erro(self, erro, "Emissão")
         em_segundo_plano(lambda: em.emitir(d), fim, falha)
+
+    def _enviar_email(self, nota_id: int, para: str):
+        from ..email_nfse import enviar_nota
+        if not para.strip():
+            QMessageBox.information(self, "E-mail", "A nota foi autorizada, mas o tomador não tem "
+                                    "e-mail. Envie pela aba Notas > Enviar por e-mail.")
+            return
+        em_segundo_plano(lambda: enviar_nota(self.banco, nota_id, para),
+                         lambda dest: QMessageBox.information(
+                             self, "E-mail", "NFS-e enviada para " + ", ".join(dest)),
+                         lambda e: mostrar_erro(self, e, "Envio por e-mail (a nota está autorizada)"))

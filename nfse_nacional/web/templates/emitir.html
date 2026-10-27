@@ -89,6 +89,9 @@
     <button class="primario" name="acao" value="emitir">Emitir NFS-e</button>
     <button name="acao" value="validar" formnovalidate title="Valida no schema oficial e assina, sem enviar">Validar e baixar XML (não envia)</button>
     <a class="botao" href="/emitir">Limpar</a>
+    {% if cfg_email and cfg_email.configurado %}
+    <label style="display:flex;gap:6px;align-items:center;margin:0 0 0 auto"><input type="checkbox" name="enviar_email" value="1" style="width:auto" {{ 'checked' if cfg_email.enviar_auto }}>Enviar por e-mail ao tomador</label>
+    {% endif %}
   </div>
 </div>
 </form>
@@ -133,6 +136,43 @@
     fetch('/fragmentos/aliquota?' + p).then(r => r.text()).then(h => document.getElementById('bloco-aliquota').innerHTML = h);
   };
   document.querySelectorAll('select.regra').forEach(s => s.addEventListener('change', regra));
+
+  // CNPJ (Receita) e CEP preenchem o tomador. Delegação: o bloco do tomador é trocado pela busca.
+  const valor = (id) => (document.getElementById(id) || {}).value || '';
+  const preencher = (dados) => {
+    for (const [id, v] of Object.entries(dados)) {
+      const el = document.getElementById(id);
+      if (el && v) el.value = v;
+    }
+  };
+  const avisar = (texto) => { const a = document.getElementById('aviso-consulta'); if (a) a.textContent = texto; };
+  let cepConsultado = valor('t_cep').replace(/\D/g, '');
+  const consultarCnpj = (forcar) => {
+    const doc = valor('t_doc').replace(/\D/g, '');
+    if (doc.length !== 14) { if (forcar) avisar('Digite um CNPJ (14 dígitos). CPF não tem consulta pública.'); return; }
+    if (!forcar && valor('t_nome')) return;
+    avisar('Consultando a Receita…');
+    fetch('/consultas/cnpj/' + doc).then(r => r.json()).then(d => {
+      if (d.erro) { avisar(forcar ? d.erro : ''); return; }
+      preencher(d); cepConsultado = d.t_cep || cepConsultado;
+      avisar(d.situacao && d.situacao !== 'ATIVA' ? 'Situação na Receita: ' + d.situacao : (d.municipio || ''));
+    }).catch(() => avisar('Sem resposta da consulta de CNPJ.'));
+  };
+  const consultarCep = () => {
+    const cep = valor('t_cep').replace(/\D/g, '');
+    if (cep.length !== 8 || cep === cepConsultado) return;
+    cepConsultado = cep;
+    fetch('/consultas/cep/' + cep).then(r => r.json()).then(d => {
+      if (d.erro) { avisar(d.erro); cepConsultado = ''; return; }
+      preencher(d); avisar(d.municipio || '');
+      (document.getElementById(d.t_lgr ? 't_nro' : 't_lgr') || {}).focus?.();
+    }).catch(() => { cepConsultado = ''; });
+  };
+  document.addEventListener('click', (ev) => { if (ev.target.id === 'consultar-cnpj') consultarCnpj(true); });
+  document.addEventListener('change', (ev) => {
+    if (ev.target.id === 't_doc') consultarCnpj(false);
+    if (ev.target.id === 't_cep') consultarCep();
+  });
 })();
 </script>
 {% endblock %}

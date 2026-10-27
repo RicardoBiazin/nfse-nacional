@@ -79,6 +79,9 @@ em outro computador é preciso importar o certificado de novo e sincronizar o AD
    padrão, série e, se já emitia por outro sistema, o próximo número da DPS.
 3. **Emitir NFS-e**: o app valida as regras do Anexo I que dá para checar localmente, valida no
    XSD oficial, assina (XMLDSig RSA-SHA1, C14N) e envia. "Validar e salvar XML" faz tudo menos enviar.
+   No tomador, digite o **CNPJ** (dados da Receita) ou o **CEP** (endereço) e o app preenche o
+   resto. **Enviar por e-mail ao tomador** manda DANFSe e XML depois de autorizada (configure o
+   SMTP em *Configurar empresa > E-mail*; Gmail e Yahoo exigem senha de app).
 4. **Notas → Sincronizar ADN** baixa tudo a partir do último NSU (emitidas pelo portal também e as
    recebidas de fornecedores). Daí saem DANFSe, cancelamento, planilha .xlsx e XMLs.
 

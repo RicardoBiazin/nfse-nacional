@@ -4,14 +4,14 @@ from __future__ import annotations
 import datetime as dt
 
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QDialogButtonBox,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                                QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
                                QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox,
-                               QPushButton, QSpinBox, QTableWidget, QTableWidgetItem,
+                               QPlainTextEdit, QPushButton, QSpinBox, QTableWidget, QTableWidgetItem,
                                QTabWidget, QVBoxLayout, QWidget)
 
-from .. import cofre
-from ..banco import Banco, Empresa
+from .. import cofre, email_nfse
+from ..banco import Banco, ConfigEmail, Empresa
 from ..certificado import Certificado, SenhaCertificadoIncorreta
 from ..dps import so_digitos
 from .comum import CampoCodigo, em_segundo_plano, mostrar_erro
@@ -23,6 +23,19 @@ REG_ESP = [("0", "Nenhum"), ("1", "Ato cooperado"), ("2", "Estimativa"),
            ("3", "Microempresa municipal"), ("4", "Notário ou registrador"),
            ("5", "Profissional autônomo"), ("6", "Sociedade de profissionais"), ("9", "Outros")]
 CONVENIO = [(None, "Não sei (consultar)"), (1, "Ativo"), (0, "Inativo")]
+SEGURANCA = [("starttls", "STARTTLS (porta 587)"), ("ssl", "SSL/TLS (porta 465)"),
+             ("nenhuma", "Sem criptografia (não recomendado)")]
+# (rótulo, host, porta, segurança, dica)
+PROVEDORES = [
+    ("Escolha para preencher…", "", 0, "", ""),
+    ("Gmail / Google Workspace", "smtp.gmail.com", 587, "starttls",
+     "Gmail exige 'senha de app' (Conta Google > Segurança > Verificação em duas etapas > Senhas de app)."),
+    ("Outlook / Microsoft 365", "smtp.office365.com", 587, "starttls",
+     "No Microsoft 365 o 'SMTP autenticado' precisa estar ligado para a caixa (admin)."),
+    ("Yahoo", "smtp.mail.yahoo.com", 465, "ssl", "Yahoo exige senha de app."),
+    ("Locaweb", "email-ssl.com.br", 465, "ssl", ""),
+    ("Hostinger", "smtp.hostinger.com", 465, "ssl", ""),
+]
 AMBIENTES = [("producao_restrita", "Produção Restrita (testes)"), ("producao", "PRODUÇÃO (vale imposto)")]
 
 
@@ -121,6 +134,53 @@ class DialogoEmpresa(QDialog):
         fg.addRow("Classificação tributária", self.ibs_class)
         f.addRow(g)
         abas.addTab(w, "Serviço padrão")
+
+        # ---- e-mail (envio da NFS-e ao tomador)
+        self.cfg_email = banco.config_email(self.e.id) if self.e.id else ConfigEmail(empresa_id=0)
+        c = self.cfg_email
+        w = QWidget(); f = QFormLayout(w)
+        dica = QLabel("O sistema nacional não manda a nota ao cliente: o app envia o DANFSe (PDF) "
+                      "e o XML pelo seu e-mail. A senha fica no Cofre de Credenciais do Windows.")
+        dica.setWordWrap(True)
+        f.addRow(dica)
+        self.provedor = QComboBox()
+        for rot, *_ in PROVEDORES:
+            self.provedor.addItem(rot)
+        self.provedor.currentIndexChanged.connect(self._aplicar_provedor)
+        self.smtp_host = QLineEdit(c.host); self.smtp_host.setPlaceholderText("ex.: smtp.gmail.com")
+        self.smtp_porta = QSpinBox(); self.smtp_porta.setRange(1, 65535); self.smtp_porta.setValue(c.porta or 587)
+        self.smtp_seg = combo(SEGURANCA, c.seguranca)
+        self.smtp_usuario = QLineEdit(c.usuario); self.smtp_usuario.setPlaceholderText("normalmente o próprio e-mail")
+        self.smtp_senha = QLineEdit(); self.smtp_senha.setEchoMode(QLineEdit.EchoMode.Password)
+        guardada = bool(self.e.id and email_nfse.senha_smtp(self.e.id))
+        self.smtp_senha.setPlaceholderText("guardada no cofre (deixe vazio para manter)" if guardada
+                                           else "senha do e-mail ou senha de app")
+        self.smtp_rem = QLineEdit(c.remetente or self.e.email); self.smtp_rem.setPlaceholderText("quem aparece como remetente")
+        self.smtp_nome = QLineEdit(c.nome_remetente or self.e.razao)
+        self.smtp_copia = QLineEdit(c.copia); self.smtp_copia.setPlaceholderText("cópia oculta (opcional), ex.: o seu e-mail")
+        self.smtp_assunto = QLineEdit(c.assunto); self.smtp_assunto.setPlaceholderText(email_nfse.ASSUNTO_PADRAO)
+        self.smtp_corpo = QPlainTextEdit(c.corpo or email_nfse.CORPO_PADRAO); self.smtp_corpo.setFixedHeight(130)
+        self.smtp_auto = QCheckBox("Marcar 'Enviar por e-mail ao tomador' ao emitir")
+        self.smtp_auto.setChecked(bool(c.enviar_auto))
+        self.rot_provedor = QLabel(); self.rot_provedor.setWordWrap(True)
+        bt_teste = QPushButton("Enviar e-mail de teste…")
+        bt_teste.clicked.connect(self._testar_email)
+        f.addRow("Provedor", self.provedor)
+        f.addRow("", self.rot_provedor)
+        f.addRow("Servidor SMTP", self.smtp_host)
+        f.addRow("Porta", self.smtp_porta)
+        f.addRow("Segurança", self.smtp_seg)
+        f.addRow("Usuário", self.smtp_usuario)
+        f.addRow("Senha", self.smtp_senha)
+        f.addRow("Remetente (e-mail)", self.smtp_rem)
+        f.addRow("Nome do remetente", self.smtp_nome)
+        f.addRow("Cópia oculta", self.smtp_copia)
+        f.addRow("Assunto", self.smtp_assunto)
+        f.addRow("Mensagem", self.smtp_corpo)
+        f.addRow("", QLabel("Campos: " + email_nfse.CAMPOS))
+        f.addRow("", self.smtp_auto)
+        f.addRow("", bt_teste)
+        abas.addTab(w, "E-mail")
 
         # ---- certificados (vários por empresa)
         w = QWidget(); v = QVBoxLayout(w)
@@ -302,6 +362,56 @@ class DialogoEmpresa(QDialog):
         e.ibs_c_class_trib = so_digitos(self.ibs_class.text())
         return e
 
+    # ------------------------------------------------------------ e-mail
+    def _aplicar_provedor(self, i: int):
+        _rot, host, porta, seg, dica = PROVEDORES[i]
+        self.rot_provedor.setText(dica)
+        if not host:
+            return
+        self.smtp_host.setText(host)
+        self.smtp_porta.setValue(porta)
+        self.smtp_seg.setCurrentIndex(self.smtp_seg.findData(seg))
+        if not self.smtp_usuario.text().strip():
+            self.smtp_usuario.setText(self.smtp_rem.text().strip())
+
+    def _coletar_email(self, empresa_id: int) -> ConfigEmail:
+        return ConfigEmail(
+            empresa_id=empresa_id, host=self.smtp_host.text().strip(), porta=self.smtp_porta.value(),
+            seguranca=self.smtp_seg.currentData(), usuario=self.smtp_usuario.text().strip(),
+            remetente=self.smtp_rem.text().strip(), nome_remetente=self.smtp_nome.text().strip(),
+            copia=self.smtp_copia.text().strip(), assunto=self.smtp_assunto.text().strip(),
+            corpo="" if self.smtp_corpo.toPlainText().strip() == email_nfse.CORPO_PADRAO.strip()
+            else self.smtp_corpo.toPlainText(),
+            enviar_auto=int(self.smtp_auto.isChecked()))
+
+    def _validar_email(self, cfg: ConfigEmail) -> str:
+        if not (cfg.host or cfg.remetente):
+            return ""                           # envio não configurado: tudo bem
+        if not cfg.host or not cfg.remetente:
+            return "E-mail: informe o servidor SMTP e o remetente (ou deixe os dois vazios)."
+        try:
+            email_nfse.separar_enderecos(cfg.remetente)
+            email_nfse.separar_enderecos(cfg.copia)
+        except ValueError as erro:
+            return f"E-mail: {erro}"
+        return ""
+
+    def _testar_email(self):
+        cfg = self._coletar_email(self.e.id or 0)
+        problema = self._validar_email(cfg) or ("" if cfg.configurado else
+                                                "Preencha servidor SMTP e remetente.")
+        if problema:
+            QMessageBox.warning(self, "E-mail", problema)
+            return
+        para, ok = QInputDialog.getText(self, "Teste de e-mail", "Enviar teste para:",
+                                        text=cfg.copia or cfg.remetente)
+        if not ok or not para.strip():
+            return
+        senha = self.smtp_senha.text() or (email_nfse.senha_smtp(self.e.id) if self.e.id else None)
+        em_segundo_plano(lambda: email_nfse.enviar_teste(cfg, senha, para),
+                         lambda _r: QMessageBox.information(self, "E-mail", f"Teste enviado para {para}."),
+                         lambda e: mostrar_erro(self, e, "Teste de e-mail"))
+
     def _abrir_existente(self, cnpj: str) -> bool:
         """'Nova empresa' com um CNPJ já cadastrado: carrega o cadastro existente na tela
         em vez de sobrescrevê-lo com o formulário vazio (bug até a 0.6.0)."""
@@ -339,6 +449,10 @@ class DialogoEmpresa(QDialog):
 
     def _salvar(self):
         e = self._coletar()
+        problema = self._validar_email(self._coletar_email(0))
+        if problema:
+            QMessageBox.warning(self, "Empresa", problema)
+            return
         if len(e.cnpj) not in (11, 14):
             QMessageBox.warning(self, "Empresa", "Importe o certificado para identificar o CNPJ.")
             return
@@ -358,5 +472,8 @@ class DialogoEmpresa(QDialog):
             self.proximo.setValue(atual)
         if self.proximo.value() != atual:
             self.banco.definir_proximo_numero(salva.id, salva.ambiente, salva.serie, self.proximo.value())
+        self.banco.salvar_config_email(self._coletar_email(salva.id))
+        if self.smtp_senha.text():
+            email_nfse.guardar_senha_smtp(salva.id, self.smtp_senha.text())
         self.e = salva
         self.accept()
