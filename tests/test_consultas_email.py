@@ -48,11 +48,11 @@ class Rede:
 
 
 BRASILAPI = {"razao_social": "CLIENTE EXEMPLO SERVICOS LTDA", "nome_fantasia": "EXEMPLO",
-             "cep": "88020010", "logradouro": "EMILIO BLUM", "descricao_tipo_de_logradouro": "RUA",
-             "numero": "121", "complemento": "", "bairro": "CENTRO", "municipio": "FLORIANOPOLIS",
+             "cep": "88020010", "logradouro": "DOS EXEMPLOS", "descricao_tipo_de_logradouro": "RUA",
+             "numero": "100", "complemento": "", "bairro": "CENTRO", "municipio": "FLORIANOPOLIS",
              "uf": "SC", "codigo_municipio_ibge": 4205407, "ddd_telefone_1": "4830001234",
              "email": None, "descricao_situacao_cadastral": "ATIVA"}
-VIACEP = {"cep": "88020-010", "logradouro": "Rua Emílio Blum", "bairro": "Centro",
+VIACEP = {"cep": "88020-010", "logradouro": "Rua dos Exemplos", "bairro": "Centro",
           "localidade": "Florianópolis", "uf": "SC", "ibge": "4205407"}
 
 
@@ -67,16 +67,16 @@ def test_cnpj_pela_brasilapi_com_grafia_do_cep():
     rede = Rede({"brasilapi.com.br/api/cnpj": Resp(200, BRASILAPI), "viacep": Resp(200, VIACEP)})
     c = consultas.consultar_cnpj(CNPJ_TOMADOR, rede)
     assert c.nome == "CLIENTE EXEMPLO SERVICOS LTDA" and c.situacao == "ATIVA"
-    assert c.fone == "4830001234" and c.numero == "121" and c.email == ""
+    assert c.fone == "4830001234" and c.numero == "100" and c.email == ""
     e = c.endereco
-    assert (e.cep, e.c_mun, e.logradouro, e.bairro) == ("88020010", "4205407", "Rua Emílio Blum", "Centro")
+    assert (e.cep, e.c_mun, e.logradouro, e.bairro) == ("88020010", "4205407", "Rua dos Exemplos", "Centro")
     assert e.municipio.startswith("Florian")
 
 
 def test_cnpj_cai_para_cnpjws_quando_brasilapi_falha():
     import requests
     ws = {"razao_social": "CLIENTE EXEMPLO SERVICOS LTDA",
-          "estabelecimento": {"tipo_logradouro": "RUA", "logradouro": "EMILIO BLUM", "numero": "121",
+          "estabelecimento": {"tipo_logradouro": "RUA", "logradouro": "DOS EXEMPLOS", "numero": "100",
                               "bairro": "CENTRO", "cep": "88020010", "ddd1": "48", "telefone1": "30001234",
                               "email": "Financeiro@Exemplo.com.br", "situacao_cadastral": "Ativa",
                               "cidade": {"ibge_id": 4205407}, "estado": {"sigla": "SC"}}}
@@ -84,7 +84,7 @@ def test_cnpj_cai_para_cnpjws_quando_brasilapi_falha():
                  "publica.cnpj.ws": Resp(200, ws), "viacep": Resp(200, {"erro": "true"})})
     c = consultas.consultar_cnpj(CNPJ_TOMADOR, rede)
     assert c.email == "financeiro@exemplo.com.br" and c.fone == "4830001234"
-    assert c.endereco.logradouro == "RUA EMILIO BLUM" and c.endereco.c_mun == "4205407"
+    assert c.endereco.logradouro == "RUA DOS EXEMPLOS" and c.endereco.c_mun == "4205407"
     assert "CNPJ.ws" in c.fonte
 
 
@@ -97,9 +97,9 @@ def test_cnpj_inexistente_e_invalido():
 
 def test_cep_viacep_e_fallback_brasilapi():
     end = consultas.consultar_cep("88020-010", Rede({"viacep": Resp(200, VIACEP)}))
-    assert (end.logradouro, end.bairro, end.c_mun) == ("Rua Emílio Blum", "Centro", "4205407")
+    assert (end.logradouro, end.bairro, end.c_mun) == ("Rua dos Exemplos", "Centro", "4205407")
     v2 = {"cep": "88020010", "state": "SC", "city": "Florianópolis", "neighborhood": "Centro",
-          "street": "Rua Emílio Blum"}               # sem o código IBGE: sai pelo nome
+          "street": "Rua dos Exemplos"}               # sem o código IBGE: sai pelo nome
     end = consultas.consultar_cep("88020010", Rede({"viacep": Resp(503), "brasilapi.com.br/api/cep": Resp(200, v2)}))
     assert end.c_mun == "4205407"
     with pytest.raises(consultas.ErroConsulta, match="não encontrado"):

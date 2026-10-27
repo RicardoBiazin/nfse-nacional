@@ -221,7 +221,7 @@ def test_email_e_consultas_cnpj_cep(ctx, monkeypatch):
     rede = Rede({"brasilapi.com.br/api/cnpj": Resp(200, BRASILAPI), "viacep": Resp(200, VIACEP)})
     monkeypatch.setattr(consultas, "_get", lambda url, s=None: rede.get(url))
     d = c.get("/consultas/cnpj/11444777000161").json()
-    assert d["t_nome"] == "CLIENTE EXEMPLO SERVICOS LTDA" and d["t_lgr"] == "Rua Emílio Blum"
+    assert d["t_nome"] == "CLIENTE EXEMPLO SERVICOS LTDA" and d["t_lgr"] == "Rua dos Exemplos"
     assert c.get("/consultas/cep/88020010").json()["t_cmun"] == "4205407"
     assert c.get("/consultas/cnpj/11444777000162").status_code == 404
 

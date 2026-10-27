@@ -293,14 +293,14 @@ def test_cep_e_cnpj_preenchem_o_tomador(janela, monkeypatch):
     monkeypatch.setattr(consultas, "_get", lambda url, sessao=None: rede.get(url))
     a = janela.aba_emitir
     a.t_cep.setText("88020-010"); a.t_cep.editingFinished.emit(); _esperar()
-    assert (a.t_lgr.text(), a.t_bairro.text(), a.t_cmun.text()) == ("Rua Emílio Blum", "Centro", "4205407")
+    assert (a.t_lgr.text(), a.t_bairro.text(), a.t_cmun.text()) == ("Rua dos Exemplos", "Centro", "4205407")
     n = len(rede.chamadas)
     a.t_cep.editingFinished.emit(); _esperar()
     assert len(rede.chamadas) == n                     # mesmo CEP não consulta de novo
     a.limpar()
     a.t_doc.setText("11444777000161"); a.t_doc.editingFinished.emit(); _esperar()   # CNPJ novo: automático
     assert a.t_nome.text() == "CLIENTE EXEMPLO SERVICOS LTDA"
-    assert (a.t_nro.text(), a.t_fone.text(), a.t_lgr.text()) == ("121", "4830001234", "Rua Emílio Blum")
+    assert (a.t_nro.text(), a.t_fone.text(), a.t_lgr.text()) == ("100", "4830001234", "Rua dos Exemplos")
 
 
 def test_email_configurado_na_empresa_e_enviado_pela_aba_notas(janela, monkeypatch, tmp_path):

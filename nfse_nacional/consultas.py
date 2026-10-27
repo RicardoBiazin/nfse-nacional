@@ -173,7 +173,7 @@ def _cnpj_cnpjws(cnpj: str, sessao=None) -> Cadastro | None:
 
 def _acentuar(cad: Cadastro, sessao=None):
     """A Receita grava tudo em maiúsculas sem acento; se o CEP trouxer a mesma rua escrita
-    direito ("Rua Emílio Blum"), usa a grafia do CEP."""
+    direito ("Rua dos Exemplos"), usa a grafia do CEP."""
     end = cad.endereco
     if not end or len(end.cep) != 8:
         return
