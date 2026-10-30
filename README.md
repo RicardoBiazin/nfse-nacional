@@ -49,8 +49,8 @@ npm run portao:local          # serve dist/ atrás do portão, em http://localho
 netlify deploy --build --prod # publica (variável PORTAO_SEGREDO já definida no site)
 ```
 
-Depois que o CNAME `nfse` → `nfse-nacional.netlify.app` existir no DNS, definir
-`REDIRECIONAR_DOMINIO=1` no Netlify para o endereço antigo redirecionar ao oficial.
+O CNAME `nfse` → `nfse-nacional.netlify.app` existe e `REDIRECIONAR_DOMINIO=1` está definido
+no Netlify (30/10/2026): o endereço antigo redireciona (301) ao oficial.
 
 ## Instalação (desenvolvimento)
 
