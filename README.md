@@ -32,7 +32,7 @@ trabalho + cookie assinado numa Edge Function, sem serviço de terceiros; o mesm
 - **DANFSe do XML:** solte XMLs de NFS-e (ou um .zip); inclua o XML do evento de cancelamento
   para sair com a marca "CANCELADA"/"SUBSTITUÍDA". Mesmo layout do app (porte de `danfse.py`).
 - **Consultar códigos:** lista de serviços nacional, NBS 2.0 e municípios IBGE.
-- **Nada sai do navegador:** sem banco, sem upload; CSP `connect-src 'self'`.
+- **Nada sai do navegador:** sem banco, sem upload; CSP `connect-src 'self'` (mais o Cloudflare Web Analytics, sem cookie).
 
 Emitir nota exige o certificado A1 e mTLS com a Sefin, por isso só existe no programa instalado.
 

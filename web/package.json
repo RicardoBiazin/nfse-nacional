@@ -1,7 +1,7 @@
 {
   "name": "nfse-nacional-web",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "NFS-e Nacional no navegador: DANFSe a partir do XML, leitura de XML e consulta de códigos. Nada sai do navegador.",
   "license": "AGPL-3.0-or-later",
   "type": "module",
