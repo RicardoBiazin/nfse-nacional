@@ -32,6 +32,18 @@ const DOMINIO_ANTIGO = "nfse-nacional.netlify.app";
 
 const LIVRES = /^\/(robots\.txt|favicon\.ico|manifest\.webmanifest|icons\/[\w.-]+)$/;
 
+// Publicas e indexaveis: a pagina de apresentacao (/sobre/, para o Google) e o
+// sitemap. Lista fechada de nomes (sem "..", sem subpastas): nada do app passa.
+const PUBLICAS = /^\/(sobre\/?|sobre\/(index\.html|sobre\.css|icone\.png|logo_nfse\.png)|sitemap\.xml)$/;
+
+// O resto do site leva noindex (antes vinha do netlify.toml para "/*", o que
+// tambem barraria a /sobre/ no Google).
+async function adiante(context: Contexto): Promise<Response> {
+  const r = await context.next();
+  r.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return r;
+}
+
 const CSP_PORTAO = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
   + "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
@@ -73,11 +85,12 @@ export default async function portao(req: Request, context: Contexto): Promise<R
   // Livres: o robots.txt (Disallow: /) precisa chegar a quem o respeita; o
   // icone e o manifesto sao pedidos pelo navegador SEM cookie (o manifesto vai
   // em modo CORS sem credenciais) e nao dao acesso a nada.
-  if (LIVRES.test(caminho)) return context.next();
+  if (PUBLICAS.test(caminho)) return context.next();
+  if (LIVRES.test(caminho)) return adiante(context);
 
   const segredo = Netlify.env.get("PORTAO_SEGREDO") ?? "";
   if (segredo.length < 16) {
-    if (context.deploy?.context === "dev") return context.next();
+    if (context.deploy?.context === "dev") return adiante(context);
     return resposta("Portão anti-robô sem configuração: defina a variável PORTAO_SEGREDO no Netlify.", 500,
       "text/plain; charset=utf-8");
   }
@@ -112,7 +125,7 @@ export default async function portao(req: Request, context: Contexto): Promise<R
   }
 
   if (await verificarPasse(segredo, lerCookie(req.headers.get("cookie"), COOKIE), ua)) {
-    return context.next();
+    return adiante(context);
   }
 
   if (querHtml(req)) {

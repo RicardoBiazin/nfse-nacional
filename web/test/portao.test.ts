@@ -147,6 +147,21 @@ test("Edge Function: desafio, verificação, cookie e passagem", { timeout: 60_0
   c = contexto();
   await portao(new Request("https://pdf.exemplo/icons/../assets/x.js"), c.ctx);
   assert.equal(c.chamou(), false, "sem escapar pela lista de livres");
+  r = await portao(new Request("https://pdf.exemplo/robots.txt"), contexto().ctx);
+  assert.match(r.headers.get("x-robots-tag")!, /noindex/, "livre continua noindex");
+  // 4b. Pagina de apresentacao e sitemap: publicas e indexaveis (Googlebot sem cookie).
+  const GOOGLEBOT = { "user-agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", accept: "text/html" };
+  for (const pub of ["/sobre", "/sobre/", "/sobre/index.html", "/sobre/sobre.css", "/sobre/icone.png", "/sobre/logo_nfse.png", "/sitemap.xml"]) {
+    c = contexto();
+    r = await portao(new Request("https://pdf.exemplo" + pub, { headers: GOOGLEBOT }), c.ctx);
+    assert.equal(c.chamou(), true, pub);
+    assert.equal(r.headers.get("x-robots-tag"), null, pub);
+  }
+  for (const fechado of ["/sobre/../assets/x.js", "/sobre/x.js", "/sobre/sub/index.html", "/sobreX", "/sitemap.xml.js"]) {
+    c = contexto();
+    await portao(new Request("https://pdf.exemplo" + fechado, { headers: GOOGLEBOT }), c.ctx);
+    assert.equal(c.chamou(), false, fechado);
+  }
   // 5. Nonce errado: 403, sem cookie.
   const post = (nonce: string, origem = "https://pdf.exemplo") => new Request("https://pdf.exemplo/__portao/verificar", {
     method: "POST", headers: { "user-agent": UA, "content-type": "application/json", origin: origem },
@@ -172,6 +187,7 @@ test("Edge Function: desafio, verificação, cookie e passagem", { timeout: 60_0
     { headers: { "user-agent": UA, cookie: `nfse_passe=${passe}` } }), c.ctx);
   assert.equal(c.chamou(), true);
   assert.equal(await r.text(), "APP");
+  assert.match(r.headers.get("x-robots-tag")!, /noindex/, "app continua fora do Google");
   // 8. Mesmo cookie noutro navegador: volta o desafio.
   c = contexto();
   r = await portao(new Request("https://pdf.exemplo/", { headers: { ...NAVEGAR, "user-agent": "Robo/1.0", cookie: `nfse_passe=${passe}` } }), c.ctx);

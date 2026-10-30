@@ -1,2 +1,5 @@
 User-agent: *
+Allow: /sobre/
 Disallow: /
+
+Sitemap: https://nfse.biazin.com.br/sitemap.xml

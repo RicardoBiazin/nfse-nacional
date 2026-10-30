@@ -36,6 +36,10 @@ trabalho + cookie assinado numa Edge Function, sem serviço de terceiros; o mesm
 
 Emitir nota exige o certificado A1 e mTLS com a Sefin, por isso só existe no programa instalado.
 
+Só a página de apresentação <https://nfse.biazin.com.br/sobre/> (`web/public/sobre/`) e o
+`sitemap.xml` ficam abertos a robôs e indexáveis; o resto passa pelo portão e leva `noindex`.
+Arquivo novo em `public/sobre/` precisa entrar na lista `PUBLICAS` de `portao.ts`.
+
 ```powershell
 cd web
 npm install

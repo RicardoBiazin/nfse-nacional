@@ -25,7 +25,8 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=()"
     Cross-Origin-Opener-Policy = "same-origin"
     Strict-Transport-Security = "max-age=31536000"
-    X-Robots-Tag = "noindex, nofollow"
+    # X-Robots-Tag "noindex" sai da Edge Function (portao.ts) para tudo, exceto
+    # /sobre/ e /sitemap.xml, que precisam ser indexaveis.
 
 [[headers]]
   for = "/assets/*"

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emissor de NFS-e Nacional grátis · NFS-e Nacional</title>
+  <meta name="description" content="Emissor gratuito e de código aberto da NFS-e Padrão Nacional: emite direto na Sefin Nacional, consulta notas no ADN e gera o DANFSe do XML no navegador.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://nfse.biazin.com.br/sobre/">
+  <link rel="icon" href="/sobre/icone.png">
+  <link rel="stylesheet" href="/sobre/sobre.css">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="NFS-e Nacional">
+  <meta property="og:title" content="Emissor de NFS-e Nacional grátis · NFS-e Nacional">
+  <meta property="og:description" content="Emissor gratuito e de código aberto da NFS-e Padrão Nacional: emite direto na Sefin Nacional, consulta notas no ADN e gera o DANFSe do XML no navegador.">
+  <meta property="og:url" content="https://nfse.biazin.com.br/sobre/">
+  <meta property="og:image" content="https://nfse.biazin.com.br/sobre/logo_nfse.png">
+  <meta property="og:image:width" content="1920">
+  <meta property="og:image:height" content="389">
+  <meta property="og:image:alt" content="Logotipo do NFS-e Nacional">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "name": "NFS-e Nacional",
+        "url": "https://nfse.biazin.com.br/sobre/",
+        "description": "Emissor gratuito e de código aberto da NFS-e Padrão Nacional, com emissão direta na Sefin Nacional, consulta no ADN e DANFSe gerado a partir do XML no navegador.",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Windows, navegador",
+        "inLanguage": "pt-BR",
+        "isAccessibleForFree": true,
+        "license": "https://www.gnu.org/licenses/agpl-3.0.html",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+        "downloadUrl": "https://github.com/RicardoBiazin/nfse-nacional/releases/latest",
+        "codeRepository": "https://github.com/RicardoBiazin/nfse-nacional",
+        "author": { "@type": "Person", "name": "Ricardo Biazin", "url": "https://biazin.com.br/" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "O NFS-e Nacional é gratuito?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Sim. É um programa gratuito e de código aberto, sob a licença AGPL-3.0. O código está no GitHub." }
+          },
+          {
+            "@type": "Question",
+            "name": "Posso emitir a nota pelo navegador?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Não. Emitir exige o certificado digital A1 e uma conexão mTLS com a Sefin Nacional, por isso a emissão só existe no programa instalado para Windows. No navegador você gera o DANFSe a partir do XML e consulta os códigos." }
+          },
+          {
+            "@type": "Question",
+            "name": "O XML da nota é enviado para algum servidor?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Não. O site não tem banco de dados nem recebe arquivos: o XML é lido e o PDF do DANFSe é gerado pelo seu próprio navegador." }
+          },
+          {
+            "@type": "Question",
+            "name": "Por que gerar o DANFSe aqui e não no site do governo?",
+            "acceptedAnswer": { "@type": "Answer", "text": "A API de DANFSe do Ambiente de Dados Nacional foi suspensa pela NT 008/2026. O NFS-e Nacional gera o DANFSe localmente, no layout do Anexo I dessa nota técnica." }
+          },
+          {
+            "@type": "Question",
+            "name": "Onde fica o meu certificado digital?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Só no seu computador. No programa para Windows o arquivo .pfx fica na pasta de dados local e a senha no Cofre de Credenciais do Windows. Ele nunca vai para o repositório nem para o executável." }
+          },
+          {
+            "@type": "Question",
+            "name": "Este é um site do governo?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Não. É um projeto independente que usa as APIs públicas do Sistema Nacional NFS-e (Sefin Nacional e ADN), sem provedor intermediário." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+<header class="topo">
+  <a class="marca" href="/sobre/"><img src="/sobre/icone.png" alt="" width="28" height="28">NFS-e Nacional</a>
+</header>
+
+<main>
+  <section class="abertura">
+    <h1>Emissor de NFS-e Nacional grátis e de código aberto</h1>
+    <p>O <strong>NFS-e Nacional</strong> é um programa para <strong>emitir e consultar a NFS-e do Padrão Nacional</strong>
+      direto nas APIs do governo, sem provedor intermediário: a emissão vai para a Sefin Nacional e as notas emitidas e
+      recebidas chegam pelo ADN (Ambiente de Dados Nacional).</p>
+    <p>A API de DANFSe do governo foi suspensa pela NT 008/2026. Por isso o programa gera o DANFSe localmente, no layout
+      da nota técnica, e esta versão para navegador faz o mesmo a partir do XML da nota, sem enviar o arquivo a ninguém.</p>
+    <p>O leiaute usado é o da DPS 1.01 (XSD oficial de 09/02/2026, com o grupo IBS/CBS opcional). O programa começa em
+      Produção Restrita, o ambiente de testes; a produção só é usada por escolha explícita no cadastro da empresa.</p>
+    <div class="acoes">
+      <a class="botao primario" href="/">Abrir o DANFSe no navegador</a>
+      <a class="botao" href="https://github.com/RicardoBiazin/nfse-nacional/releases/latest" rel="noopener">Baixar para Windows</a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recursos</h2>
+    <ul class="recursos">
+      <li><strong>Emissão direta na Sefin Nacional</strong>: DPS assinada com o seu certificado A1, consulta por chave e
+        por Id da DPS, cancelamento (evento 101101) e parâmetros municipais.</li>
+      <li><strong>Notas emitidas e recebidas</strong>: distribuição por NSU no ADN, com os eventos de cancelamento e
+        substituição.</li>
+      <li><strong>DANFSe em PDF</strong> no programa e no navegador, com a marca "CANCELADA" ou "SUBSTITUÍDA" quando o
+        XML do evento vem junto; vários XMLs ou um .zip de uma vez.</li>
+      <li><strong>Consulta de códigos</strong>: lista de serviços nacional (código de tributação), NBS 2.0 e municípios
+        IBGE.</li>
+      <li><strong>Consulta de CNPJ e CEP</strong> no cadastro do tomador e <strong>envio da nota por e-mail</strong> pelo
+        SMTP da própria empresa (programa para Windows).</li>
+      <li><strong>Versão para a rede da empresa</strong>: um computador vira servidor e as pessoas usam pelo navegador, com
+        login, permissões e auditoria.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Perguntas frequentes</h2>
+    <details>
+      <summary>O NFS-e Nacional é gratuito?</summary>
+      <p>Sim. É um programa gratuito e de código aberto, sob a licença AGPL-3.0. O código está no GitHub.</p>
+    </details>
+    <details>
+      <summary>Posso emitir a nota pelo navegador?</summary>
+      <p>Não. Emitir exige o certificado digital A1 e uma conexão mTLS com a Sefin Nacional, por isso a emissão só existe
+        no programa instalado para Windows. No navegador você gera o DANFSe a partir do XML e consulta os códigos.</p>
+    </details>
+    <details>
+      <summary>O XML da nota é enviado para algum servidor?</summary>
+      <p>Não. O site não tem banco de dados nem recebe arquivos: o XML é lido e o PDF do DANFSe é gerado pelo seu próprio
+        navegador.</p>
+    </details>
+    <details>
+      <summary>Por que gerar o DANFSe aqui e não no site do governo?</summary>
+      <p>A API de DANFSe do Ambiente de Dados Nacional foi suspensa pela NT 008/2026. O NFS-e Nacional gera o DANFSe
+        localmente, no layout do Anexo I dessa nota técnica.</p>
+    </details>
+    <details>
+      <summary>Onde fica o meu certificado digital?</summary>
+      <p>Só no seu computador. No programa para Windows o arquivo .pfx fica na pasta de dados local e a senha no Cofre de
+        Credenciais do Windows. Ele nunca vai para o repositório nem para o executável.</p>
+    </details>
+    <details>
+      <summary>Este é um site do governo?</summary>
+      <p>Não. É um projeto independente que usa as APIs públicas do Sistema Nacional NFS-e (Sefin Nacional e ADN), sem
+        provedor intermediário.</p>
+    </details>
+  </section>
+
+  <section>
+    <h2>Links</h2>
+    <ul class="links">
+      <li><a href="/">Abrir o DANFSe no navegador</a></li>
+      <li><a href="https://github.com/RicardoBiazin/nfse-nacional" rel="noopener">Código-fonte no GitHub</a></li>
+      <li><a href="https://github.com/RicardoBiazin/nfse-nacional/releases/latest" rel="noopener">Download para Windows (Releases)</a></li>
+      <li><a href="https://biazin.com.br/ferramentas/nfse-nacional/">NFS-e Nacional no biazin.com.br</a></li>
+    </ul>
+  </section>
+</main>
+<footer>NFS-e Nacional · código aberto (AGPL-3.0) · não é um site do governo</footer>
+</body>
+</html>

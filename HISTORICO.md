@@ -175,6 +175,15 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.5 — 30/10/2026
+
+- **Página de apresentação indexável** na versão web: <https://nfse.biazin.com.br/sobre/>
+  (título, descrição, Open Graph, recursos, perguntas frequentes e JSON-LD WebApplication +
+  FAQPage). O portão anti-robô deixa passar só `/sobre/` (lista fechada de arquivos) e
+  `/sitemap.xml`; o app continua protegido e com `noindex` (que agora sai da Edge Function, não
+  mais do `netlify.toml`). `robots.txt` com `Allow: /sobre/` e `Sitemap:`; `sitemap.xml` novo.
+  Web 0.1.1. Programa desktop sem mudança de funcionamento.
+
 ## 0.9.4 — 27/10/2026
 
 - Porta e segurança do e-mail trocadas (SSL/TLS na 587, STARTTLS na 465) davam`n  `[SSL: WRONG_VERSION_NUMBER]`: agora o envio avisa o par certo antes de conectar, a tela de
