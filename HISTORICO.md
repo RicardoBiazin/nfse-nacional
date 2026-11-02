@@ -175,6 +175,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.6 — 02/11/2026
+
+- **Nota que faltava na sincronização**: o ADN entregou os NSU 31 e 32 sem o 30 (NFS-e nº 18)
+  e o app seguiu adiante, então ela nunca mais vinha. Agora cada sincronização relê os últimos
+  50 NSU já vistos e grava o que não estiver no banco; basta clicar em "Sincronizar ADN".
+
 ## 0.9.5 — 30/10/2026
 
 - **Página de apresentação indexável** na versão web: <https://nfse.biazin.com.br/sobre/>

@@ -235,6 +235,35 @@ def test_sincronizacao_adn(banco, empresa, certificado):
     assert em.sincronizar() == 0
 
 
+def test_sincronizacao_recupera_nsu_que_o_adn_nao_entregou(banco, empresa, certificado):
+    """Caso real: o ADN entregou os NSU 31 e 32 sem o 30 (nota 18), que nunca mais veio."""
+    from nfse_nacional.dps import gerar_xml, para_bytes
+    em = Emissor(banco, empresa, certificado, sessao=SessaoFalsa())
+    item = {}
+    for nsu, n in ((1, "1"), (2, "2"), (3, "3")):
+        chave = CHAVE[:-14] + n.rjust(14, "0")
+        dps = para_bytes(gerar_xml(em.montar_dps(dados(), 200 + nsu)))
+        item[nsu] = {"NSU": nsu, "ChaveAcesso": chave, "TipoDocumento": "NFSE",
+                     "ArquivoXml": compactacao.para_gzip_b64(nfse_de(dps, chave=chave, numero=n))}
+    entregues = [item[1], item[3]]                 # 1ª passada: o 2 não vem
+
+    def dfe(u, k):
+        nsu = int(re.search(r"/DFe/(\d+)", u).group(1))
+        docs = [d for d in entregues if d["NSU"] >= nsu]
+        if not docs:
+            return resposta(404, {"StatusProcessamento": "NENHUM_DOCUMENTO_LOCALIZADO"})
+        return resposta(200, {"StatusProcessamento": "DOCUMENTOS_LOCALIZADOS",
+                              "LoteDFe": docs, "MaiorNSU": 3})
+    em._sessao.rota("GET", r"/contribuintes/DFe/", dfe)
+
+    assert em.sincronizar() == 2
+    assert banco.ultimo_nsu(empresa.id, empresa.ambiente) == 3
+    entregues[:] = [item[1], item[2], item[3]]     # agora o ADN tem o 2
+    assert em.sincronizar() == 1
+    assert banco.nota_por_chave(item[2]["ChaveAcesso"])["numero"] == "2"
+    assert em.sincronizar() == 0
+
+
 def test_reserva_de_numero_e_definir_proximo(banco, empresa):
     assert banco.reservar_numero(empresa.id, "producao", "1") == 1
     assert banco.reservar_numero(empresa.id, "producao", "1") == 2

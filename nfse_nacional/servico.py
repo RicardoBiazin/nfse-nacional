@@ -398,25 +398,45 @@ class Emissor:
     # ------------------------------------------------------------ ADN
     def sincronizar(self, progresso: Callable[[str], None] | None = None,
                     max_lotes: int = 200) -> int:
-        """Baixa do ADN tudo a partir do último NSU (emitidas e recebidas). Devolve a contagem."""
+        """Baixa do ADN tudo a partir do último NSU (emitidas e recebidas). Devolve a contagem.
+
+        Relê também os últimos REVISAR_NSU já vistos: um documento que o ADN não entregou na
+        primeira passada (NSU 30 da RVJV, nota 18, ficou de fora com 31 e 32 gravados) entra
+        na sincronização seguinte em vez de se perder para sempre."""
         e = self.empresa
         avisar = progresso or (lambda _m: None)
-        ultimo = self.banco.ultimo_nsu(e.id, e.ambiente)
+        visto = ultimo = self.banco.ultimo_nsu(e.id, e.ambiente)
+        inicio = max(0, ultimo - self.REVISAR_NSU)
         total = 0
         for _ in range(max_lotes):
-            lote = self.adn.distribuicao(ultimo + 1, cnpj_consulta=e.cnpj)
-            novos = [d for d in lote.documentos if d.nsu > ultimo]
+            lote = self.adn.distribuicao(inicio + 1, cnpj_consulta=e.cnpj)
+            novos = [d for d in lote.documentos if d.nsu > inicio]
             if not novos:
                 break
             for doc in sorted(novos, key=lambda d: d.nsu):
-                self._guardar_documento(doc.xml, doc.nsu)
-                ultimo = doc.nsu
-                total += 1
-            self.banco.gravar_nsu(e.id, e.ambiente, ultimo)
-            avisar(f"NSU {ultimo}: {total} documento(s) baixado(s)")
-            if lote.maior_nsu is not None and ultimo >= lote.maior_nsu:
+                if doc.nsu > visto or self._faltando(doc):
+                    self._guardar_documento(doc.xml, doc.nsu)
+                    total += 1
+                inicio = doc.nsu
+                ultimo = max(ultimo, doc.nsu)
+            if ultimo > visto:
+                self.banco.gravar_nsu(e.id, e.ambiente, ultimo)
+            avisar(f"NSU {inicio}: {total} documento(s) baixado(s)")
+            if lote.maior_nsu is not None and inicio >= lote.maior_nsu:
                 break
         return total
+
+    REVISAR_NSU = 50
+
+    def _faltando(self, doc) -> bool:
+        """Documento de NSU já visto que não está no banco (nota ou evento)."""
+        tipo = leitor.tipo_documento(doc.xml)
+        if tipo == "NFSe":
+            return self.banco.nota_por_chave(leitor.ler_nfse(doc.xml).chave) is None
+        if tipo in ("evento", "Evento"):
+            ev = leitor.ler_evento(doc.xml)
+            return not any(x["tipo"] == ev.tipo for x in self.banco.eventos(ev.chave))
+        return False
 
     def _guardar_documento(self, xml: bytes, nsu: int | None = None):
         tipo = leitor.tipo_documento(xml)
