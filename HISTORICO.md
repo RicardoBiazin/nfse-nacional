@@ -175,6 +175,12 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.7 — 02/11/2026
+
+- **Quatro temas**: Claro, Escuro, Sunset e Azul claro. No desktop, menu *Tema* (fica salvo em`n  `preferencias.ini` na pasta de dados); na versão web interna, seletor no rodapé (cookie por
+  navegador). Sem escolha, segue o modo do Windows/navegador.
+- Botão "Emitir NFS-e" sem folha de estilo própria (ela fazia o botão ignorar as cores do tema).
+
 ## 0.9.6 — 02/11/2026
 
 - **Nota que faltava na sincronização**: o ADN entregou os NSU 31 e 32 sem o 30 (NFS-e nº 18)

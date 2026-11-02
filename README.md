@@ -88,6 +88,8 @@ em outro computador é preciso importar o certificado de novo e sincronizar o AD
    SMTP em *Configurar empresa > E-mail*; Gmail e Yahoo exigem senha de app).
 4. **Notas → Sincronizar ADN** baixa tudo a partir do último NSU (emitidas pelo portal também e as
    recebidas de fornecedores). Daí saem DANFSe, cancelamento, planilha .xlsx e XMLs.
+5. **Tema** (menu do desktop ou rodapé da versão web): Claro, Escuro, Sunset ou Azul claro; sem
+   escolha, segue o modo claro/escuro do Windows.
 
 ### Linha de comando
 

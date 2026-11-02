@@ -143,7 +143,9 @@ class AbaEmitir(QWidget):
         bt_validar.clicked.connect(self._simular)
         self.bt_emitir = QPushButton("Emitir NFS-e")
         self.bt_emitir.setDefault(True)
-        self.bt_emitir.setStyleSheet("font-weight: bold; padding: 6px 18px;")
+        # Fonte e tamanho sem folha de estilo: com stylesheet o botão ignorava a paleta do tema.
+        fonte = self.bt_emitir.font(); fonte.setBold(True); self.bt_emitir.setFont(fonte)
+        self.bt_emitir.setMinimumSize(150, 32)
         self.bt_emitir.clicked.connect(self._emitir)
         self.enviar_email = QCheckBox("Enviar por e-mail ao tomador")
         self.enviar_email.setToolTip("Depois de autorizada, manda DANFSe (PDF) e XML para o "

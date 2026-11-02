@@ -40,6 +40,7 @@ from . import auth
 AQUI = Path(__file__).resolve().parent
 INATIVIDADE = dt.timedelta(minutes=60)
 SITUACOES = ["autorizada", "cancelada", "rejeitada", "indefinida", "pendente"]
+TEMAS = {"claro": "Claro", "escuro": "Escuro", "sunset": "Sunset", "azul": "Azul claro"}
 
 
 # ====================================================================== infraestrutura
@@ -210,6 +211,8 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
         if "csrf" not in request.session:
             request.session["csrf"] = secrets.token_urlsafe(24)
         empresa = empresa_atual(request) if u else None
+        tema = request.cookies.get("tema", "")
+        ctx.update(tema=tema if tema in TEMAS else "", TEMAS=TEMAS)
         ctx.update(request=request, u=u, empresa=empresa, empresas=banco.empresas() if u else [],
                    csrf=request.session["csrf"], pode=lambda p: bool(u) and auth.pode(u["papel"], p),
                    aviso=request.session.pop("aviso", None), erro_flash=request.session.pop("erro", None))
@@ -239,6 +242,18 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
         r.headers.setdefault("X-Content-Type-Options", "nosniff")
         r.headers.setdefault("Referrer-Policy", "same-origin")
         r.headers.setdefault("Cache-Control", "no-store")
+        return r
+
+    # ------------------------------------------------------------ tema
+    @app.get("/tema")
+    def trocar_tema(nome: str = "", voltar: str = "/notas"):
+        """Só aparência: cookie por navegador, sem login nem CSRF. `voltar` só aceita caminho local."""
+        destino = voltar if voltar.startswith("/") and not voltar.startswith(("//", "/\\")) else "/notas"
+        r = RedirectResponse(destino, status_code=303)
+        if nome in TEMAS:
+            r.set_cookie("tema", nome, max_age=400 * 24 * 3600, samesite="strict", httponly=True)
+        else:
+            r.delete_cookie("tema")
         return r
 
     # ------------------------------------------------------------ login

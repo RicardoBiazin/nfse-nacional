@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QActionGroup, QIcon
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
                                QMainWindow, QMessageBox, QPushButton, QTabWidget,
                                QVBoxLayout, QWidget)
@@ -14,6 +14,7 @@ from ..banco import Banco
 from ..servico import Emissor, tomadores_de_notas
 from .aba_emitir import AbaEmitir
 from .aba_notas import AbaNotas
+from . import temas
 from .comum import mostrar_erro
 from .dialogo_empresa import DialogoEmpresa
 
@@ -56,6 +57,15 @@ class Janela(QMainWindow):
         sobre.triggered.connect(lambda: QMessageBox.about(
             self, "Sobre", f"NFS-e Nacional {VERSAO}\n\nEmissão (Sefin Nacional) e consulta (ADN) "
             "da NFS-e Padrão Nacional.\nLeiaute DPS 1.01."))
+        menu_tema = self.menuBar().addMenu("Tema")
+        grupo = QActionGroup(self)
+        atual = temas.tema_salvo()
+        self.acoes_tema = {}
+        for nome, (rotulo, _cores) in temas.TEMAS.items():
+            a = QAction(rotulo, self, checkable=True, checked=nome == atual)
+            a.triggered.connect(lambda _c=False, n=nome: temas.aplicar(n, salvar=True))
+            grupo.addAction(a); menu_tema.addAction(a)
+            self.acoes_tema[nome] = a
         self.menuBar().addAction(sobre)
 
         self._carregar_empresas()
@@ -180,6 +190,7 @@ def executar() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("NFS-e Nacional")
     app.setStyle("Fusion")
+    temas.aplicar(temas.tema_salvo(), app)
     app.setWindowIcon(icone())
     j = Janela()
     j.show()

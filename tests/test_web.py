@@ -254,3 +254,15 @@ def test_email_e_consultas_cnpj_cep(ctx, monkeypatch):
     r = c.post(f"/notas/{nota['id']}/email", data={"csrf": _csrf(r.text), "para": "outro@exemplo.com"})
     assert "enviada para outro@exemplo.com" in r.text
     assert "E-mail ✓" in c.get("/notas?ambiente=producao_restrita&inicio=2000-01-01&fim=2100-01-01").text
+
+
+def test_tema_por_cookie_e_voltar_so_local(ctx):
+    c = ctx[0]
+    assert "data-tema" not in c.get("/login").text           # sem escolha: segue o sistema
+    r = c.get("/tema", params={"nome": "sunset", "voltar": "/login"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+    assert 'data-tema="sunset"' in c.get("/login").text
+    r = c.get("/tema", params={"nome": "azul", "voltar": "//malicioso.example"}, follow_redirects=False)
+    assert r.headers["location"] == "/notas"                 # nada de redirecionar para fora
+    c.get("/tema", params={"nome": "<script>"})               # nome desconhecido apaga a escolha
+    assert "data-tema" not in c.get("/login").text

@@ -368,3 +368,14 @@ def test_falhas_vao_para_o_log_e_smtp_tem_mensagem_clara(tmp_path, monkeypatch):
     assert "aberto NFS-e Nacional" in texto and "quebrou no slot" in texto
     assert "senha de app" in texto_erro(smtplib.SMTPAuthenticationError(535, b"bad"))
     assert "envio de e-mail" in texto_erro(smtplib.SMTPServerDisconnected("caiu"))
+
+
+def test_temas_trocam_paleta_e_ficam_salvos(janela):
+    from PySide6.QtGui import QPalette
+    from nfse_nacional.interface import temas
+    assert set(janela.acoes_tema) == {"claro", "escuro", "sunset", "azul"}
+    for nome, (_rotulo, cores) in temas.TEMAS.items():
+        janela.acoes_tema[nome].trigger()
+        assert QApplication.instance().palette().color(QPalette.ColorRole.Window).name() == cores["janela"]
+        assert temas.tema_salvo() == nome
+    temas.aplicar("claro", salvar=True)

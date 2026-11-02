@@ -1,16 +1,32 @@
+/* Temas: claro (padrão), escuro, sunset e azul claro. Sem escolha (cookie "tema"),
+   segue o modo do sistema. As mesmas cores do desktop (interface/temas.py). */
 :root {
   --fundo: #f4f6f8; --cartao: #ffffff; --texto: #1d2733; --suave: #64707d; --borda: #d9dee4;
   --verde: #1b7f3b; --azul: #2b3f8c; --amarelo: #f2b705; --vermelho: #b3261e; --laranja: #b26a00;
-  --cinza: #8a8f98; --destaque: #e9eef8;
+  --cinza: #8a8f98; --destaque: #e9eef8; --link: #2b3f8c;
+  --ok-fundo: #e3f4e8; --ok-texto: #11502a; --ok-borda: #b6dfc3;
+  --erro-fundo: #fbe7e6; --erro-texto: #7a1a14; --erro-borda: #f0c0bc;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --fundo: #15191e; --cartao: #1e242b; --texto: #e3e7ec; --suave: #9aa5b1; --borda: #333c46;
-          --destaque: #26303b; }
+  :root:not([data-tema]) { --fundo: #15191e; --cartao: #1e242b; --texto: #e3e7ec; --suave: #9aa5b1;
+    --borda: #333c46; --destaque: #26303b; --link: #8fa8ff;
+    --ok-fundo: #16321f; --ok-texto: #b6e6c4; --ok-borda: #25553a;
+    --erro-fundo: #3a1b19; --erro-texto: #f3c4bf; --erro-borda: #5e2a26; }
 }
+:root[data-tema="escuro"] { --fundo: #15191e; --cartao: #1e242b; --texto: #e3e7ec; --suave: #9aa5b1;
+  --borda: #333c46; --destaque: #26303b; --link: #8fa8ff; --azul: #3d6fd1;
+  --ok-fundo: #16321f; --ok-texto: #b6e6c4; --ok-borda: #25553a;
+  --erro-fundo: #3a1b19; --erro-texto: #f3c4bf; --erro-borda: #5e2a26; }
+:root[data-tema="sunset"] { --fundo: #1f1422; --cartao: #2a1b2d; --texto: #ffe7d6; --suave: #c9a8a0;
+  --borda: #4a3045; --destaque: #3a2438; --link: #ffb38a; --azul: #e8613a; --amarelo: #ffc65c;
+  --verde: #7fd18b; --laranja: #ffb05c; --cinza: #a88f99;
+  --ok-fundo: #1f3324; --ok-texto: #bfe8c6; --ok-borda: #2f5a39;
+  --erro-fundo: #45201f; --erro-texto: #ffc9c1; --erro-borda: #6e302c; }
+:root[data-tema="azul"] { --fundo: #e6f1fb; --cartao: #ffffff; --texto: #0f2a44; --suave: #4f6880;
+  --borda: #c5dbef; --destaque: #d8eaf9; --link: #1f5f9e; --azul: #2f80c9; }
 * { box-sizing: border-box; }
 body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; background: var(--fundo); color: var(--texto); }
-a { color: var(--azul); }
-@media (prefers-color-scheme: dark) { a { color: #8fa8ff; } }
+a { color: var(--link); }
 header.topo { display: flex; align-items: center; gap: 16px; padding: 8px 20px; background: var(--cartao);
   border-bottom: 1px solid var(--borda); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
 header.topo .marca { display: flex; align-items: center; gap: 8px; font-weight: 600; text-decoration: none; color: inherit; }
@@ -41,10 +57,8 @@ button.perigo { color: var(--vermelho); border-color: var(--vermelho); }
 .desc { display: block; font-size: 12px; color: var(--cinza); margin-top: 2px; }
 .desc.alerta { color: var(--laranja); }
 .flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 14px; }
-.flash.ok { background: #e3f4e8; color: #11502a; border: 1px solid #b6dfc3; }
-.flash.erro { background: #fbe7e6; color: #7a1a14; border: 1px solid #f0c0bc; }
-@media (prefers-color-scheme: dark) { .flash.ok { background:#16321f; color:#b6e6c4; border-color:#25553a; }
-  .flash.erro { background:#3a1b19; color:#f3c4bf; border-color:#5e2a26; } }
+.flash.ok { background: var(--ok-fundo); color: var(--ok-texto); border: 1px solid var(--ok-borda); }
+.flash.erro { background: var(--erro-fundo); color: var(--erro-texto); border: 1px solid var(--erro-borda); }
 .flash ul { margin: 6px 0 0; padding-left: 18px; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 6px 8px; border-bottom: 1px solid var(--borda); text-align: left; vertical-align: top; }
