@@ -175,6 +175,14 @@ Não testado ainda contra o servidor real: precisa de um certificado A1 ICP-Bras
 - Executáveis publicados em GitHub Releases.
 
 
+## 0.9.8 — 02/11/2026
+
+- **Empresa de teste (fictícia)**: menu *Teste* no desktop, cartão na página *Empresa* da web
+  (admin) e `empresa-teste` / `empresa-teste-remover` na linha de comando. CNPJ 99.888.777/0001-00,
+  certificado autoassinado gerado na hora, 2 tomadores e 2 notas de exemplo (com DANFSe).
+  O Emissor recusa falar com o sistema nacional por ela (antes de reservar número); "Validar e
+  salvar XML" funciona. Remover apaga só ela e não mexe em tomador que já existia.
+
 ## 0.9.7 — 02/11/2026
 
 - **Quatro temas**: Claro, Escuro, Sunset e Azul claro. No desktop, menu *Tema* (fica salvo em`n  `preferencias.ini` na pasta de dados); na versão web interna, seletor no rodapé (cookie por

@@ -75,6 +75,8 @@ def main(argv=None) -> int:
     p.add_argument("pares", nargs="+")
 
     sub.add_parser("empresas", help="lista empresas")
+    sub.add_parser("empresa-teste", help="cria a empresa fictícia de teste (não fala com o sistema)")
+    sub.add_parser("empresa-teste-remover", help="apaga a empresa fictícia de teste")
 
     for nome, ajuda in (("emitir", "emite NFS-e a partir de um JSON"),
                         ("simular", "monta, valida e assina a DPS sem enviar")):
@@ -168,6 +170,15 @@ def _executar(a, banco: Banco) -> int:
     if a.cmd == "empresas":
         for e in banco.empresas():
             print(f"{e.cnpj}  {e.razao}  mun={e.c_mun}  amb={e.ambiente}  série={e.serie}")
+        return 0
+    if a.cmd == "empresa-teste":
+        from .demo import criar_empresa_teste
+        e = criar_empresa_teste(banco)
+        print(f"{e.cnpj}  {e.razao} (fictícia: não envia nada ao sistema nacional)")
+        return 0
+    if a.cmd == "empresa-teste-remover":
+        from .demo import remover_empresa_teste
+        print("removida" if remover_empresa_teste(banco) else "não havia empresa de teste")
         return 0
 
     em = abrir_emissor(banco, a.cnpj)

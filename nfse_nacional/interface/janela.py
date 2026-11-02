@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
                                QMainWindow, QMessageBox, QPushButton, QTabWidget,
                                QVBoxLayout, QWidget)
 
-from .. import VERSAO, cofre
+from .. import VERSAO, cofre, demo
 from ..config import pasta_base
 from ..banco import Banco
 from ..servico import Emissor, tomadores_de_notas
@@ -66,8 +66,33 @@ class Janela(QMainWindow):
             a.triggered.connect(lambda _c=False, n=nome: temas.aplicar(n, salvar=True))
             grupo.addAction(a); menu_tema.addAction(a)
             self.acoes_tema[nome] = a
+        menu_teste = self.menuBar().addMenu("Teste")
+        menu_teste.addAction("Criar empresa de teste (fictícia)", self._criar_empresa_teste)
+        menu_teste.addAction("Remover empresa de teste", self._remover_empresa_teste)
         self.menuBar().addAction(sobre)
 
+        self._carregar_empresas()
+
+    def _criar_empresa_teste(self):
+        e = demo.criar_empresa_teste(self.banco)
+        self._carregar_empresas(e.id)
+        QMessageBox.information(
+            self, "Empresa de teste",
+            f"{e.razao} — CNPJ {e.cnpj}.\n\nTudo nela é inventado: certificado autoassinado, "
+            "tomadores e 2 notas de exemplo. Ela não fala com o sistema nacional; use "
+            "\"Validar e salvar XML\" para ver o XML assinado. Para apagar: menu Teste > "
+            "Remover empresa de teste.")
+
+    def _remover_empresa_teste(self):
+        if not self.banco.empresa_por_cnpj(demo.CNPJ_TESTE):
+            QMessageBox.information(self, "Empresa de teste", "Não há empresa de teste cadastrada.")
+            return
+        if QMessageBox.question(
+                self, "Empresa de teste", "Apagar a empresa de teste e as notas fictícias dela? "
+                "As outras empresas não são tocadas.") != QMessageBox.StandardButton.Yes:
+            return
+        demo.remover_empresa_teste(self.banco)
+        self._emissor = None
         self._carregar_empresas()
 
     def _duplicar(self, dados):
@@ -102,8 +127,11 @@ class Janela(QMainWindow):
         self._emissor = None
         e = self._empresa_atual()
         if not e:
-            self.selo.setText("Cadastre uma empresa")
+            self.selo.setText("Cadastre uma empresa (ou menu Teste)")
             self.selo.setStyleSheet("")
+        elif demo.eh_teste(e):
+            self.selo.setText("  EMPRESA DE TESTE (fictícia)  ")
+            self.selo.setStyleSheet("background:#6a4fb3; color:white; font-weight:bold; border-radius:4px")
         elif e.ambiente == "producao":
             self.selo.setText("  PRODUÇÃO  ")
             self.selo.setStyleSheet("background:#b3261e; color:white; font-weight:bold; border-radius:4px")

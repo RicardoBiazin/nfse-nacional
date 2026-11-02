@@ -32,7 +32,8 @@
     </form>
     {% elif empresa %}<span class="mini">{{ empresa.razao }}</span>{% endif %}
     {% if empresa %}
-      {% if empresa.ambiente == 'producao' %}<span class="selo producao">EMISSÃO EM PRODUÇÃO</span>
+      {% if empresa_teste %}<span class="selo teste">EMPRESA DE TESTE (fictícia)</span>
+      {% elif empresa.ambiente == 'producao' %}<span class="selo producao">EMISSÃO EM PRODUÇÃO</span>
       {% else %}<span class="selo restrita">EMISSÃO EM PRODUÇÃO RESTRITA (testes)</span>{% endif %}
     {% endif %}
     <a href="/conta" class="mini">{{ u.nome or u.login }}</a>

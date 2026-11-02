@@ -88,12 +88,16 @@ em outro computador é preciso importar o certificado de novo e sincronizar o AD
    SMTP em *Configurar empresa > E-mail*; Gmail e Yahoo exigem senha de app).
 4. **Notas → Sincronizar ADN** baixa tudo a partir do último NSU (emitidas pelo portal também e as
    recebidas de fornecedores). Daí saem DANFSe, cancelamento, planilha .xlsx e XMLs.
-5. **Tema** (menu do desktop ou rodapé da versão web): Claro, Escuro, Sunset ou Azul claro; sem
+5. **Empresa de teste** (menu *Teste* no desktop, página *Empresa* na web ou `empresa-teste` na linha
+   de comando): empresa fictícia (CNPJ 99.888.777/0001-00) com certificado autoassinado, tomadores
+   e 2 notas de exemplo, para conhecer as telas. Não fala com o sistema nacional.
+6. **Tema** (menu do desktop ou rodapé da versão web): Claro, Escuro, Sunset ou Azul claro; sem
    escolha, segue o modo claro/escuro do Windows.
 
 ### Linha de comando
 
 ```powershell
+python -m nfse_nacional empresa-teste            # empresa fictícia para conhecer o app
 python -m nfse_nacional empresa-importar --pfx C:\cert\empresa.pfx --senha ****
 python -m nfse_nacional empresa-config 11222333000181 c_mun=4115200 op_simp_nac=3 reg_ap_trib_sn=1 c_trib_nac=010701 p_tot_sn=6
 python -m nfse_nacional simular 11222333000181 nota.json --saida dps.xml   # não envia

@@ -117,4 +117,14 @@
   {% if pode('admin') %}<h2 style="margin-top:16px">Adicionar certificado</h2>{% include "_cert_upload.html" %}{% endif %}
 </div>
 {% endif %}
-{% endblock %}
+{% if pode('admin') %}
+<form method="post" action="/empresa/teste" class="cartao">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <h2>Empresa de teste (fictícia)</h2>
+  <p class="mini">Cria uma empresa inventada (CNPJ 99.888.777/0001-00) com certificado autoassinado, tomadores e
+    2 notas de exemplo, para conhecer as telas. Ela não fala com o sistema nacional: "Validar e salvar XML"
+    funciona, emitir não. As outras empresas não são tocadas.</p>
+  <div class="acoes"><button name="acao" value="criar">Criar empresa de teste</button>
+    <button name="acao" value="remover" class="perigo" onclick="return confirm('Apagar a empresa de teste e as notas fictícias dela?')">Remover empresa de teste</button></div>
+</form>
+{% endif %}{% endblock %}

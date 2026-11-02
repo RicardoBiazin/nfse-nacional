@@ -225,12 +225,19 @@ class Emissor:
             self._sessao = sessao_mtls(self.cert)
         return self._sessao
 
+    def _barrar_empresa_teste(self):
+        from .demo import MENSAGEM_TESTE, eh_teste
+        if eh_teste(self.empresa):
+            raise ValueError(MENSAGEM_TESTE)
+
     @property
     def sefin(self) -> ClienteSefin:
+        self._barrar_empresa_teste()
         return ClienteSefin(self.sessao, self.amb)
 
     @property
     def adn(self) -> ClienteADN:
+        self._barrar_empresa_teste()
         return ClienteADN(self.sessao, self.amb)
 
     # ------------------------------------------------------------ montagem
@@ -308,6 +315,7 @@ class Emissor:
         e = self.empresa
         # Valida com número provisório para não queimar número em erro de digitação.
         self.preparar(self.montar_dps(dados, 1))
+        self._barrar_empresa_teste()        # antes de reservar número e gravar nota pendente
         n = self.banco.reservar_numero(e.id, e.ambiente, e.serie)
         dps = self.montar_dps(dados, n)
         xml = self.preparar(dps)

@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from .. import VERSAO, cofre, consultas, email_nfse, exportar, regras, tabelas
+from .. import VERSAO, cofre, consultas, demo, email_nfse, exportar, regras, tabelas
 from ..banco import Banco, ConfigEmail, Empresa, Tomador
 from ..certificado import Certificado, SenhaCertificadoIncorreta
 from ..cliente_http import ErroApi, sessao_mtls
@@ -212,7 +212,7 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
             request.session["csrf"] = secrets.token_urlsafe(24)
         empresa = empresa_atual(request) if u else None
         tema = request.cookies.get("tema", "")
-        ctx.update(tema=tema if tema in TEMAS else "", TEMAS=TEMAS)
+        ctx.update(tema=tema if tema in TEMAS else "", TEMAS=TEMAS, empresa_teste=demo.eh_teste(empresa))
         ctx.update(request=request, u=u, empresa=empresa, empresas=banco.empresas() if u else [],
                    csrf=request.session["csrf"], pode=lambda p: bool(u) and auth.pode(u["papel"], p),
                    aviso=request.session.pop("aviso", None), erro_flash=request.session.pop("erro", None))
@@ -789,6 +789,18 @@ def criar_app(banco: Banco | None = None, sessao_http: Callable[[Certificado], r
             banco.definir_proximo_numero(e.id, e.ambiente, e.serie, int(prox))
         banco.auditar(u["login"], "empresa", f"cadastro salvo (ambiente {e.ambiente})", ip=ip_de(request))
         flash(request, aviso="Cadastro salvo.")
+        return RedirectResponse("/empresa", status_code=303)
+
+    @app.post("/empresa/teste", dependencies=[Depends(csrf)])
+    def empresa_teste(request: Request, acao: str = Form("criar"), u=Depends(exigir("admin"))):
+        if acao == "remover":
+            demo.remover_empresa_teste(banco)
+            request.session.pop("empresa_id", None)
+            flash(request, aviso="Empresa de teste removida.")
+        else:
+            e = demo.criar_empresa_teste(banco)
+            request.session["empresa_id"] = e.id
+            flash(request, aviso=f"{e.razao} pronta: tudo fictício e nada vai ao sistema nacional.")
         return RedirectResponse("/empresa", status_code=303)
 
     @app.post("/empresa/consultar-municipio", dependencies=[Depends(csrf)])

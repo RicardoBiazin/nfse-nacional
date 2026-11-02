@@ -266,3 +266,14 @@ def test_tema_por_cookie_e_voltar_so_local(ctx):
     assert r.headers["location"] == "/notas"                 # nada de redirecionar para fora
     c.get("/tema", params={"nome": "<script>"})               # nome desconhecido apaga a escolha
     assert "data-tema" not in c.get("/login").text
+
+
+def test_empresa_de_teste_pela_web(ctx):
+    c, banco, _s, tmp_path = ctx
+    _preparar(c, banco, tmp_path)
+    r = c.get("/empresa")
+    c.post("/empresa/teste", data={"csrf": _csrf(r.text), "acao": "criar"})
+    r = c.get("/empresa")
+    assert "EMPRESA DE TESTE (fictícia)" in r.text
+    c.post("/empresa/teste", data={"csrf": _csrf(r.text), "acao": "remover"})
+    assert "EMPRESA DE TESTE (fictícia)" not in c.get("/empresa").text

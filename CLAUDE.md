@@ -20,6 +20,8 @@ Nacional e no ADN. Python 3.13, venv em `.venv`.
 - `servico.py` orquestra (emissão idempotente, cancelamento, sincronização NSU)
 - `banco.py` SQLite em `%LOCALAPPDATA%\NFSE_Nacional` (env `NFSE_NACIONAL_DADOS` sobrepõe)
 - `regras.py` RNs do Anexo I checadas antes do envio
+- `demo.py` empresa de teste fictícia (CNPJ 99888777000100, cert autoassinado); o Emissor barra rede para ela
+- `interface/temas.py` temas claro/escuro/sunset/azul (paleta; web usa as mesmas cores em app.css)
 - `consultas.py` CNPJ (BrasilAPI/CNPJ.ws) e CEP (ViaCEP/BrasilAPI); testes nunca vão à rede
   (conftest troca `consultas._get`)
 - `email_nfse.py` envio por SMTP da empresa (tabelas `config_email` e `envios_email`; senha no

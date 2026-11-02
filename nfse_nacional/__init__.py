@@ -1,3 +1,3 @@
 """NFSE_Nacional: emissão e consulta da NFS-e Padrão Nacional (Sefin Nacional + ADN)."""
 
-VERSAO = "0.9.7"
+VERSAO = "0.9.8"

@@ -379,3 +379,15 @@ def test_temas_trocam_paleta_e_ficam_salvos(janela):
         assert QApplication.instance().palette().color(QPalette.ColorRole.Window).name() == cores["janela"]
         assert temas.tema_salvo() == nome
     temas.aplicar("claro", salvar=True)
+
+
+def test_menu_cria_e_remove_empresa_de_teste(janela, monkeypatch):
+    from nfse_nacional import demo
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
+    janela._criar_empresa_teste()
+    assert "TESTE" in janela.selo.text()
+    assert janela.empresas.currentData() == janela.banco.empresa_por_cnpj(demo.CNPJ_TESTE).id
+    janela.aba_notas.recarregar()
+    assert janela.aba_notas.tabela.rowCount() >= 0
+    janela._remover_empresa_teste()
+    assert janela.banco.empresa_por_cnpj(demo.CNPJ_TESTE) is None
