@@ -166,3 +166,7 @@ certificados, usuários, auditoria). Variáveis: `NFSE_SYNC_HORAS` (sincronizaç
 padrão 4), `NFSE_BACKUP_DESTINO` (pasta extra de backup, ex. no Google Drive),
 `NFSE_NACIONAL_DADOS` (pasta de dados). Remover: `NFSE_Servidor.exe remover-servico`.
 Senha de administrador esquecida: `NFSE_Servidor.exe criar-admin LOGIN` (no servidor, como admin).
+
+## Código de conduta
+
+Veja [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
