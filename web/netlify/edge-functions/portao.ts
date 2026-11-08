@@ -30,7 +30,7 @@ declare const Netlify: { env: { get(nome: string): string | undefined } };
 const DOMINIO_OFICIAL = "nfse.biazin.com.br";
 const DOMINIO_ANTIGO = "nfse-nacional.netlify.app";
 
-const LIVRES = /^\/(robots\.txt|llms\.txt|favicon\.ico|manifest\.webmanifest|icons\/[\w.-]+)$/;
+const LIVRES = /^\/(robots\.txt|favicon\.ico|manifest\.webmanifest|icons\/[\w.-]+)$/;
 
 // Publicas e indexaveis: a pagina de apresentacao (/sobre/, para o Google) e o
 // sitemap. Lista fechada de nomes (sem "..", sem subpastas): nada do app passa.
@@ -85,6 +85,13 @@ export default async function portao(req: Request, context: Contexto): Promise<R
   // Livres: o robots.txt (Disallow: /) precisa chegar a quem o respeita; o
   // icone e o manifesto sao pedidos pelo navegador SEM cookie (o manifesto vai
   // em modo CORS sem credenciais) e nao dao acesso a nada.
+  // O llms.txt sai SEM o "noindex" do netlify.toml: ele existe para os agentes de IA lerem.
+  if (caminho === "/llms.txt") {
+    const r = await context.next();
+    const cab = new Headers(r.headers);
+    cab.delete("X-Robots-Tag");
+    return new Response(r.body, { status: r.status, statusText: r.statusText, headers: cab });
+  }
   if (PUBLICAS.test(caminho)) return context.next();
   if (LIVRES.test(caminho)) return adiante(context);
 
