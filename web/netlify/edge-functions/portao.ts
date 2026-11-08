@@ -30,7 +30,7 @@ declare const Netlify: { env: { get(nome: string): string | undefined } };
 const DOMINIO_OFICIAL = "nfse.biazin.com.br";
 const DOMINIO_ANTIGO = "nfse-nacional.netlify.app";
 
-const LIVRES = /^\/(robots\.txt|favicon\.ico|manifest\.webmanifest|icons\/[\w.-]+)$/;
+const LIVRES = /^\/(robots\.txt|llms\.txt|favicon\.ico|manifest\.webmanifest|icons\/[\w.-]+)$/;
 
 // Publicas e indexaveis: a pagina de apresentacao (/sobre/, para o Google) e o
 // sitemap. Lista fechada de nomes (sem "..", sem subpastas): nada do app passa.

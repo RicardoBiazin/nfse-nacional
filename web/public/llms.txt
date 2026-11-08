@@ -1,0 +1,19 @@
+# NFS-e Nacional
+
+> Emissor de NFS-e do Padrão Nacional para Windows, de código aberto (AGPL-3.0). Emite, consulta e cancela notas direto nas APIs do governo (Sefin Nacional e ADN), sem provedor intermediário, usando o certificado digital A1 da empresa. Gera o DANFSe e exporta XML, PDF e planilha. Criado por Ricardo Biazin (biazin.com.br). Não é um site do governo.
+
+O programa começa em produção restrita; a produção só é ligada por escolha explícita no cadastro da empresa. A versão para navegador gera o DANFSe a partir do XML, localmente. O aplicativo web é protegido contra robôs, então a descrição completa está na página de apresentação.
+
+## Apresentação
+
+- [NFS-e Nacional: apresentação e recursos](https://nfse.biazin.com.br/sobre/): o que o programa faz, requisitos e como baixar.
+
+## Downloads e código
+
+- [Versões para Windows](https://github.com/RicardoBiazin/nfse-nacional/releases): executável NFSE_Nacional.exe.
+- [Código-fonte](https://github.com/RicardoBiazin/nfse-nacional): licença AGPL-3.0.
+- [Página da ferramenta em biazin.com.br](https://biazin.com.br/ferramentas/nfse-nacional/): descrição, requisitos e perguntas frequentes.
+
+## Autor
+
+- Ricardo Biazin, RVJV Soluções Corporativas (Florianópolis/SC). [LinkedIn](https://www.linkedin.com/in/ricardo-biazin/). [Outras ferramentas gratuitas](https://biazin.com.br/).
